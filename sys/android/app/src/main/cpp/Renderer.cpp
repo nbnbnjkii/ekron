@@ -35,6 +35,7 @@ std::atomic<int> currentTool{0},currentSelection{0},currentSurface{-1},interacti
 std::atomic<int> droneMode{0};
 std::atomic<int> thirdPerson{0},jetpackState{0};
 std::atomic<bool> jetpackThrust{false};
+std::atomic<bool> lobbyVisible{false};
 std::atomic<int> manualSave{0};
 std::atomic<bool> manualSaveRequested{false};
 std::atomic<float> droneThrottle{0},droneYawInput{0},dronePitchInput{0},droneRollInput{0};
@@ -188,6 +189,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLoo
  if(!gameplayReady||!std::isfinite(dx)||!std::isfinite(dy))return;
  std::lock_guard<std::mutex> lock(commandMutex);lookDx=std::clamp(lookDx+dx,-400.f,400.f);lookDy=std::clamp(lookDy+dy,-400.f,400.f);
 }
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLobbyVisible(JNIEnv*,jobject,jboolean visible){lobbyVisible=visible;}
 extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeRequestSave(JNIEnv*,jobject){manualSave=1;manualSaveRequested=true;return 1;}
 extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeSaveResult(JNIEnv*,jobject){int result=manualSave.load();if(result==2||result==-1)manualSave=0;return result;}
 extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeJetpackState(JNIEnv*,jobject){return jetpackState.load();}
@@ -466,6 +468,9 @@ void Renderer::handleInput(){
 void Renderer::render(){
  if(!program_||surface_==EGL_NO_SURFACE)return;
  if(loadStage>=0&&loadStage<5)advanceLoading();
+ // Keep EGL/vsync alive, but do not draw the entire military city behind an
+ // opaque lobby/editor. Input/save handling still runs on the native loop.
+ if(lobbyVisible&&loadStage==6){glClearColor(0,0,0,1);glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);eglSwapBuffers(display_,surface_);last_=std::chrono::steady_clock::now();return;}
  eglQuerySurface(display_,surface_,EGL_WIDTH,&width_);eglQuerySurface(display_,surface_,EGL_HEIGHT,&height_);if(width_<1||height_<1)return;
  const auto now=std::chrono::steady_clock::now();float dt=std::clamp(std::chrono::duration<float>(now-last_).count(),0.f,.05f);last_=now;
  if(gameplayReady&&city_.ready()){

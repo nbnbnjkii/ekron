@@ -59,6 +59,7 @@ class MainActivity : GameActivity() {
     private var paused = false
     private var lobby: LobbyView?=null
     private var enteredLobby=false
+    private external fun nativeLobbyVisible(visible:Boolean)
     private external fun nativeRequestSave(): Int
     private external fun nativeSaveResult(): Int
     private var controlsEditor:ControlEditorView?=null
@@ -84,10 +85,10 @@ class MainActivity : GameActivity() {
     private fun showLobby(){
         if(lobby!=null)return
         nativeJetpackThrust(false)
-        setPaused(true)
+        setPaused(true);nativeLobbyVisible(true)
         fun leaveLobby(){
             lobby?.let { (it.parent as? ViewGroup)?.removeView(it) };lobby=null
-            hud.visibility=View.VISIBLE
+            hud.visibility=View.VISIBLE;nativeLobbyVisible(false)
             getSharedPreferences("session",0).edit().putBoolean("started",true).apply()
             setPaused(false)
         }
@@ -466,6 +467,7 @@ class MainActivity : GameActivity() {
         fpvLayer=FrameLayout(this).apply { visibility=View.GONE;isMotionEventSplittingEnabled=true }
         fpvControls=FpvControlView(this,{throttle,yaw,pitch,roll->nativeDroneInput(throttle,yaw,pitch,roll)},{x,y->nativeLook(x,y)})
         fpvLayer.addView(fpvControls,FrameLayout.LayoutParams(-1,-1))
+        fpvLayer.addView(action("Пауза","pause") { showLobby() },FrameLayout.LayoutParams(dp(76),dp(56),Gravity.TOP or Gravity.START).apply { topMargin=dp(8);leftMargin=dp(8) })
         fpvLayer.addView(action("Смена вида","switch") { nativeCommand(45) }.apply { contentDescription="Сменить вид: FPV или орбитальная камера" },FrameLayout.LayoutParams(dp(82),dp(64),Gravity.TOP or Gravity.END).apply { topMargin=dp(8);rightMargin=dp(76) })
         fpvLayer.addView(action("","remove") { fpvControls.reset();nativeCommand(42) }.apply { contentDescription="Выйти из FPV" },FrameLayout.LayoutParams(dp(60),dp(60),Gravity.TOP or Gravity.END).apply { topMargin=dp(8);rightMargin=dp(8) })
         overlay.addView(fpvLayer,FrameLayout.LayoutParams(-1,-1))
