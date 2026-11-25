@@ -40,13 +40,13 @@ int main(){
  for(int i=0;i<60;i++)running.update(scene,0,0,0,1.f/120,false,x,y,z);
  running.jump();float startZ=z;float peak=y;
  for(int i=0;i<50;i++){running.update(scene,0,1,0,1.f/120,false,x,y,z);peak=std::max(peak,y);}
- assert(startZ-z>1.8f&&peak>2.3f);
+ assert(startZ-z>1.0f&&peak>2.3f);
  // A 65 cm windowsill is crossed without any jump command; the camera rises smoothly.
  CollisionMesh sill;floorQuad(sill,0);sill.addBox({-2,0,-.2f},{2,.65f,.2f});sill.build();
  PlayerController walking;x=0;y=1.7f;z=1;walking.reset(x,y,z);
  for(int i=0;i<60;i++)walking.update(sill,0,0,0,1.f/120,false,x,y,z);
  float maxFeet=0,previousY=y,maxCameraDelta=0;
- for(int i=0;i<80;i++){
+ for(int i=0;i<140;i++){
   walking.update(sill,0,1,0,1.f/120,false,x,y,z);maxFeet=std::max(maxFeet,walking.feet().y);
   maxCameraDelta=std::max(maxCameraDelta,std::abs(y-previousY));previousY=y;
  }
@@ -60,5 +60,17 @@ int main(){
   for(int i=0;i<100;i++)blocked.update(obstacle,0,1,0,1.f/120,false,x,y,z);
   assert(z>.4f&&blocked.feet().y<.1f);
  }
+ // Full stick is WALK; sprint is explicit, and never accelerates crouch/prone.
+ CollisionMesh track;floorQuad(track,0);track.build();
+ auto travel=[&](bool sprint,bool crouch,bool prone,float right,float forward){
+  PlayerController p;float px=0,py=1.7f,pz=0;p.reset(px,py,pz);
+  for(int i=0;i<120;i++)p.update(track,right,forward,0,1.f/120,crouch,px,py,pz,nullptr,prone,nullptr,sprint);
+  return std::hypot(px,pz);
+ };
+ float walk=travel(false,false,false,0,1),run=travel(true,false,false,0,1);
+ assert(walk>2.6f&&walk<2.8f&&run>5.7f&&run<5.9f);
+ assert(std::abs(travel(true,true,false,0,1)-travel(false,true,false,0,1))<.01f);
+ assert(std::abs(travel(true,false,true,0,1)-travel(false,false,true,0,1))<.01f);
+ assert(std::abs(travel(false,false,false,1,1)-walk)<.01f);
  std::cout<<"Gravity, roof landing, pits, stable slopes, jump/crouch window and concrete frame OK\n";
 }

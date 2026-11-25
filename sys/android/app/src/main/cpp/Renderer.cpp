@@ -30,10 +30,14 @@ std::atomic<int> loadStage{0},debugNotice{0},loadPercent{0};
 std::atomic<float> verticalInput{0};
 std::atomic<float> stickRight{0},stickForward{0};
 std::atomic<float> driveSteer{0},driveThrottle{0};
-std::atomic<bool> gameplayReady{false};
+std::atomic<bool> gameplayReady{false},sprintInput{false};
 std::atomic<int> currentTool{0},currentSelection{0},currentSurface{-1},interactionAction{0},freezeState{0};
 std::atomic<int> droneMode{0};
-std::atomic<int> thirdPerson{0};
+std::atomic<int> thirdPerson{0},jetpackState{0};
+std::atomic<bool> jetpackThrust{false};
+std::atomic<bool> lobbyVisible{false};
+std::atomic<int> manualSave{0};
+std::atomic<bool> manualSaveRequested{false};
 std::atomic<float> droneThrottle{0},droneYawInput{0},dronePitchInput{0},droneRollInput{0};
 std::atomic<bool> holdingObject{false};
 std::mutex snapshotMutex;
@@ -176,7 +180,7 @@ void cube(std::vector<Vertex>&v,const sandbox::Box&b){sandbox::appendCube(v,b);}
 
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeReady(JNIEnv*,jobject,jboolean ready){gameplayReady=ready;if(!ready){stickRight=0;stickForward=0;verticalInput=0;driveSteer=0;driveThrottle=0;}}
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeReady(JNIEnv*,jobject,jboolean ready){gameplayReady=ready;if(!ready){sprintInput=false;jetpackThrust=false;stickRight=0;stickForward=0;verticalInput=0;driveSteer=0;driveThrottle=0;}}
 extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeDroneInput(JNIEnv*,jobject,jfloat throttle,jfloat yaw,jfloat pitch,jfloat roll){
  auto clean=[](float v){return gameplayReady&&std::isfinite(v)?std::clamp(v,-1.f,1.f):0.f;};
  droneThrottle=clean(throttle);droneYawInput=clean(yaw);dronePitchInput=clean(pitch);droneRollInput=clean(roll);
@@ -185,6 +189,12 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLoo
  if(!gameplayReady||!std::isfinite(dx)||!std::isfinite(dy))return;
  std::lock_guard<std::mutex> lock(commandMutex);lookDx=std::clamp(lookDx+dx,-400.f,400.f);lookDy=std::clamp(lookDy+dy,-400.f,400.f);
 }
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLobbyVisible(JNIEnv*,jobject,jboolean visible){lobbyVisible=visible;}
+extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeRequestSave(JNIEnv*,jobject){manualSave=1;manualSaveRequested=true;return 1;}
+extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeSaveResult(JNIEnv*,jobject){int result=manualSave.load();if(result==2||result==-1)manualSave=0;return result;}
+extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeJetpackState(JNIEnv*,jobject){return jetpackState.load();}
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeJetpackThrust(JNIEnv*,jobject,jboolean pressed){jetpackThrust=gameplayReady&&pressed;}
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeSprint(JNIEnv*,jobject,jboolean pressed){sprintInput=gameplayReady&&pressed;}
 extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeMove(JNIEnv*,jobject,jfloat right,jfloat forward){
  stickRight=gameplayReady&&std::isfinite(right)?std::clamp(right,-1.f,1.f):0;
  stickForward=gameplayReady&&std::isfinite(forward)?std::clamp(forward,-1.f,1.f):0;
@@ -289,7 +299,8 @@ void Renderer::advanceLoading(){
   bool exists=std::any_of(world_.objects.begin(),world_.objects.end(),[](const sandbox::Object&o){return o.type==8;});
   if(data.carValid&&!restoredWorld&&!exists&&world_.objects.size()<sandbox::World::limit){sandbox::Object car{8,0,data.parkingX,data.parkingZ};car.y=data.parkingY+.5f;world_.objects.push_back(car);}
   const auto config=readSpawnConfig(app_);
-  if(!retainedWorld&&config.enabled){world_.x=config.x;world_.y=config.y;world_.z=config.z;world_.yaw=config.yawDegrees*.01745329252f;world_.pitch=0;flying_=config.startFlying;}
+  if(!retainedWorld&&(!restoredWorld||!world_.hasPlayerState)&&config.enabled){world_.x=config.x;world_.y=config.y;world_.z=config.z;world_.yaw=config.yawDegrees*.01745329252f;world_.pitch=0;flying_=config.startFlying;}
+  jetpack_.state=static_cast<sandbox::Jetpack::State>(world_.equippedJetpack);jetpackState=world_.equippedJetpack;
   player_.setBoundary(city_.scene().minimum[0],city_.scene().maximum[0],city_.scene().minimum[2],city_.scene().maximum[2]);
   player_.reset(world_.x,world_.y,world_.z);rebuildBuiltCollision();assetsInstalled_=true;loadStage=4;
  }
@@ -314,8 +325,9 @@ Renderer::~Renderer(){
  if(assetsJob_.valid())assetsJob_.wait();
  tools_.cancel(world_);
  if(saveJob_.valid())saveJob_.get();
+ world_.equippedJetpack=int(jetpack_.state);
  if(saveDirty_)world_.save(savePath_);
- if(assetsInstalled_){retainedWorld=world_;retainedDrone=drone_;retainedTool=tools_.tool;retainedFlying=flying_;}
+ if(assetsInstalled_){world_.equippedJetpack=int(jetpack_.state);retainedWorld=world_;retainedDrone=drone_;retainedTool=tools_.tool;retainedFlying=flying_;}
  if(display_!=EGL_NO_DISPLAY){if(context_!=EGL_NO_CONTEXT&&surface_!=EGL_NO_SURFACE&&eglMakeCurrent(display_,surface_,surface_,context_)){militaryEffects_.release();droneModel_.release();remote_.release();car_.release();city_.release();textures_.release();if(skyProgram_)glDeleteProgram(skyProgram_);if(buffer_)glDeleteBuffers(1,&buffer_);if(vao_)glDeleteVertexArrays(1,&vao_);if(program_)glDeleteProgram(program_);}eglMakeCurrent(display_,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);if(context_!=EGL_NO_CONTEXT)eglDestroyContext(display_,context_);if(surface_!=EGL_NO_SURFACE)eglDestroySurface(display_,surface_);eglTerminate(display_);}
 }
 void Renderer::uploadDynamic(const std::vector<sandbox::MeshVertex>&vertices){
@@ -335,6 +347,20 @@ void Renderer::handleInput(){
    world_.y=std::isfinite(ground)?ground+1.7f:1.7f;world_.yaw=world_.pitch=0;flying_=false;player_.reset(world_.x,world_.y,world_.z);resetInput();}
  }
  for(int command:pending){bool changed=false;
+  if(command==63&&city_.ready()){
+   tools_.cancel(world_);seatedCar_=-1;drone_.mode=sandbox::FpvDrone::Absent;jetpack_.remove();jetpackState=0;
+   world_.objects.clear();if(carParkingValid_)world_.objects.push_back(carParking_);
+   respawnPlayer();rebuildBuiltCollision();saveDirty_=true;continue;
+  }
+  if(command>=60&&command<=62){
+   if(seatedCar_<0&&!drone_.piloting()){
+    if(command==60&&jetpack_.take()){tools_.select(world_,sandbox::HandTool::HAND_EMPTY);building_=false;if(drone_.mode==sandbox::FpvDrone::InHands)drone_.mode=sandbox::FpvDrone::Absent;}
+    if(command==61)jetpack_.wear();
+    if(command==62)jetpack_.remove();
+   }
+   jetpackThrust=false;jetpackState=int(jetpack_.state);saveDirty_=true;continue;
+  }
+
   if(command==45&&city_.ready()){drone_.toggleView(*city_.scene().collision,builtCollision_);continue;}
   if(command==42){
    if(drone_.piloting())drone_.leave();
@@ -419,10 +445,20 @@ void Renderer::handleInput(){
   if(changed){saveDirty_=true;rebuildBuiltCollision();}
  }
  currentTool=int(tools_.tool);holdingObject=tools_.holding();currentSelection=world_.selected;currentSurface=world_.surface;
- if(saveJob_.valid()&&saveJob_.wait_for(std::chrono::seconds(0))==std::future_status::ready){if(!saveJob_.get())__android_log_print(ANDROID_LOG_ERROR,"Ekron","Save failed");}
- if(saveDirty_&&!saveJob_.valid()){
-  sandbox::World saved;saved.objects=world_.objects;if(seatedCar_>=0)saved.objects[seatedCar_].anchored=carWasAnchored_;if(tools_.holding())saved.objects[tools_.held]=tools_.original;auto path=savePath_;
-  saveJob_=std::async(std::launch::async,[saved=std::move(saved),path](){return saved.save(path);});saveDirty_=false;
+ if(saveJob_.valid()&&saveJob_.wait_for(std::chrono::seconds(0))==std::future_status::ready){
+  bool ok=false;try{ok=saveJob_.get();}catch(const std::exception&e){__android_log_print(ANDROID_LOG_ERROR,"Ekron","Save: %s",e.what());}
+  if(manualSaveInFlight_){manualSave=ok?2:-1;manualSaveInFlight_=false;}
+ }
+ if(!saveJob_.valid()&&assetsInstalled_&&(saveDirty_||manualSaveRequested.load())){
+  bool explicitSave=manualSaveRequested.exchange(false);
+  sandbox::World saved;saved.objects=world_.objects;
+  saved.x=world_.x;saved.y=world_.y;saved.z=world_.z;saved.yaw=world_.yaw;saved.pitch=world_.pitch;saved.equippedJetpack=int(jetpack_.state);
+  if(seatedCar_>=0){saved.x=seatFrom_.x;saved.y=seatFrom_.y;saved.z=seatFrom_.z;}
+  if(seatedCar_>=0&&size_t(seatedCar_)<saved.objects.size())saved.objects[seatedCar_].anchored=carWasAnchored_;
+  if(tools_.holding()&&size_t(tools_.held)<saved.objects.size())saved.objects[tools_.held]=tools_.original;
+  auto path=savePath_;
+  try{saveJob_=std::async(std::launch::async,[saved=std::move(saved),path](){return saved.save(path);});manualSaveInFlight_=explicitSave;saveDirty_=false;}
+  catch(const std::exception&e){if(explicitSave)manualSave=-1;__android_log_print(ANDROID_LOG_ERROR,"Ekron","Save launch: %s",e.what());}
  }
  auto *buffer=android_app_swap_input_buffers(app_);if(!buffer)return;
  // Both movement and look are handled by sibling Android views with split pointer IDs.
@@ -432,6 +468,9 @@ void Renderer::handleInput(){
 void Renderer::render(){
  if(!program_||surface_==EGL_NO_SURFACE)return;
  if(loadStage>=0&&loadStage<5)advanceLoading();
+ // Keep EGL/vsync alive, but do not draw the entire military city behind an
+ // opaque lobby/editor. Input/save handling still runs on the native loop.
+ if(lobbyVisible&&loadStage==6){glClearColor(0,0,0,1);glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);eglSwapBuffers(display_,surface_);last_=std::chrono::steady_clock::now();return;}
  eglQuerySurface(display_,surface_,EGL_WIDTH,&width_);eglQuerySurface(display_,surface_,EGL_HEIGHT,&height_);if(width_<1||height_<1)return;
  const auto now=std::chrono::steady_clock::now();float dt=std::clamp(std::chrono::duration<float>(now-last_).count(),0.f,.05f);last_=now;
  if(gameplayReady&&city_.ready()){
@@ -479,7 +518,7 @@ void Renderer::render(){
   }
  }
  if(gameplayReady&&seatedCar_<0&&!drone_.piloting()){if(flying_)city::fly(world_,stickRight.load(),stickForward.load(),verticalInput.load(),dt);
- else if(city_.ready())player_.update(*city_.scene().collision,stickRight.load(),stickForward.load(),world_.yaw,dt,crouched_,world_.x,world_.y,world_.z,&builtCollision_,prone_,city_.scene().fenceBarriers.get());
+ else if(city_.ready())player_.update(*city_.scene().collision,stickRight.load(),stickForward.load(),world_.yaw,dt,crouched_,world_.x,world_.y,world_.z,&builtCollision_,prone_,city_.scene().fenceBarriers.get(),sprintInput.load(),jetpackThrust.load()&&jetpack_.thrustAllowed(seatedCar_>=0,drone_.piloting(),crouched_,prone_));
  else world_.move(stickRight.load(),stickForward.load(),dt);}
  if(city_.ready()){
   if(seatedCar_<0&&!flying_&&sandbox::needsPlayerRecovery(world_,city_.scene().minimum,city_.scene().maximum))respawnPlayer();
@@ -536,7 +575,9 @@ void Renderer::render(){
  }
  if(gameplayReady)tools_.pull(world_,dt,city_.scene().collision.get());
  if(gameplayReady)militaryEffects_.update(dt,cameraEye.x,cameraEye.z);
- std::vector<Vertex> vertices;blasts_.append(vertices);vertices.reserve((world_.scenery.size()+world_.objects.size()*10+1)*36);
+ if(jetpack_.state==sandbox::Jetpack::InHands&&tools_.tool!=sandbox::HandTool::HAND_EMPTY){jetpack_.remove();jetpackState=0;}
+ std::vector<Vertex> vertices;blasts_.append(vertices);
+ jetpack_.append(vertices,{world_.x,world_.y,world_.z},playerView_.mix>.5f?playerView_.bodyYaw:world_.yaw,playerView_.mix>.5f);vertices.reserve((world_.scenery.size()+world_.objects.size()*10+1)*36);
  // Old street-specific graffiti coordinates do not belong to the replacement city.
  for(const auto &b:world_.scenery)cube(vertices,b);for(size_t i=0;i<world_.objects.size();i++){
   if(world_.objects[i].type==8)continue;

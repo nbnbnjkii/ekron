@@ -38,6 +38,13 @@ class MainActivity : GameActivity() {
     private external fun nativeStatus(): FloatArray
     private external fun nativeVertical(value: Float)
     private external fun nativeDroneInput(throttle:Float,yaw:Float,pitch:Float,roll:Float)
+    private external fun nativeJetpackState(): Int
+    private external fun nativeJetpackThrust(pressed: Boolean)
+    private lateinit var jetpackWear: Button
+    private lateinit var jetpackRemove: Button
+    private lateinit var jetpackLift: Button
+    private lateinit var jetpackIndicator: TextView
+    private external fun nativeSprint(pressed: Boolean)
     private external fun nativeMove(right: Float, forward: Float)
     private external fun nativeDriveSteer(steer: Float)
     private external fun nativeDriveThrottle(throttle: Float)
@@ -50,8 +57,49 @@ class MainActivity : GameActivity() {
     private var droneState=0
     private val normalHudVisibility=mutableMapOf<View,Int>()
     private var paused = false
+    private var lobby: LobbyView?=null
+    private var enteredLobby=false
+    private external fun nativeLobbyVisible(visible:Boolean)
+    private external fun nativeRequestSave(): Int
+    private external fun nativeSaveResult(): Int
+    private var controlsEditor:ControlEditorView?=null
+    fun editControls(profile:String){
+        if(controlsEditor!=null)return
+        // Measure hidden control groups without displaying them. Otherwise FPV
+        // sticks have zero dimensions until the first flight and cannot be edited.
+        val hidden=mutableListOf<View>()
+        fun reveal(group:ViewGroup){for(i in 0 until group.childCount){val v=group.getChildAt(i);if(v.visibility==View.GONE){hidden.add(v);v.visibility=View.INVISIBLE};if(v is ViewGroup)reveal(v)}}
+        reveal(hud)
+        hud.measure(View.MeasureSpec.makeMeasureSpec(hud.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(hud.height,View.MeasureSpec.EXACTLY))
+        hud.layout(hud.left,hud.top,hud.right,hud.bottom)
+        val editor=ControlEditorView(this,hud,profile){
+            controlsEditor?.let { (it.parent as? ViewGroup)?.removeView(it) };controlsEditor=null
+            lobby?.visibility=View.VISIBLE;lobby?.refresh()
+            ControlEditorView.apply(hud,profile)
+        }
+        hidden.forEach { it.visibility=View.GONE }
+        controlsEditor=editor;lobby?.visibility=View.INVISIBLE
+        addContentView(editor,ViewGroup.LayoutParams(-1,-1))
+    }
+    fun setLobbyMuted(muted:Boolean){getSharedPreferences("settings",0).edit().putBoolean("muted",muted).apply();lobby?.setMuted(muted);player?.setVolume(if(muted)0f else 1f,if(muted)0f else 1f)}
+    private fun showLobby(){
+        if(lobby!=null)return
+        nativeJetpackThrust(false)
+        setPaused(true);nativeLobbyVisible(true)
+        fun leaveLobby(){
+            lobby?.let { (it.parent as? ViewGroup)?.removeView(it) };lobby=null
+            hud.visibility=View.VISIBLE;nativeLobbyVisible(false)
+            getSharedPreferences("session",0).edit().putBoolean("started",true).apply()
+            setPaused(false)
+        }
+        val room=LobbyView(this,{ leaveLobby() },{ leaveLobby();nativeCommand(63) },{ nativeRequestSave();lobby?.message("Сохранение…") })
+        room.canContinue=getSharedPreferences("session",0).getBoolean("started",false)||java.io.File(filesDir,"military-city-20240229-v1.txt").exists()
+        lobby=room;hud.visibility=View.INVISIBLE
+        addContentView(room,ViewGroup.LayoutParams(-1,-1));room.refresh()
+    }
     private var worldReady = false
     private var flyingNow = false
+    private lateinit var sprintControl: HudButton
     private lateinit var joystick: StickView
     private lateinit var driveStick: StickView
     private lateinit var movementControls: LinearLayout
@@ -131,6 +179,11 @@ class MainActivity : GameActivity() {
                     if(state.size>=13){freezeControl.caption=if(state[12]>.5f) "Разморозить" else "Заморозить";freezeControl.contentDescription=freezeControl.caption;freezeControl.invalidate()}
                     if(state.size>=15 && ::viewToggle.isInitialized){ viewToggle.isSelected=state[14]>.5f }
                     renderTools()
+                    val jet=nativeJetpackState()
+                    jetpackWear.visibility=if(jet==1&&interactionCode!=4)View.VISIBLE else View.GONE
+                    jetpackRemove.visibility=if(jet==2&&interactionCode!=4)View.VISIBLE else View.GONE
+                    jetpackLift.visibility=if(jet==2&&interactionCode!=4)View.VISIBLE else View.GONE
+                    jetpackIndicator.visibility=if(jet==2)View.VISIBLE else View.GONE
                 }
                 latest = state.copyOfRange(0, 3)
                 coordinates.text = String.format(Locale.US, "X: %.1f   Y: %.1f   Z: %.1f", state[0], state[1], state[2])
@@ -140,6 +193,10 @@ class MainActivity : GameActivity() {
                 altitude.visibility = if (flying) View.VISIBLE else View.GONE
                 val stage = state[4].toInt()
                 worldReady = stage == 6 && introFinished
+                if(worldReady&&!enteredLobby){enteredLobby=true;handler.post { showLobby() }}
+                if(lobby!=null){
+                    when(nativeSaveResult()){2->lobby?.message("Игра сохранена");-1->lobby?.message("Не удалось сохранить игру")}
+                }
                 val unlocked = worldReady && active
                 nativeReady(unlocked && !paused)
                 weapon.running=unlocked && !paused
@@ -184,7 +241,7 @@ class MainActivity : GameActivity() {
                 val fpv=droneState in 3..5
                 if(fpv){
                     if(normalHudVisibility.isEmpty()){
-                        closePopup();toolWheel.cancel();joystick.reset();lookArea.reset()
+                        closePopup();toolWheel.cancel();joystick.reset();lookArea.reset();weapon.sprinting=false;nativeSprint(false)
                         for(i in 0 until hud.childCount){val child=hud.getChildAt(i);if(child!==fpvLayer)normalHudVisibility[child]=child.visibility}
                         Toast.makeText(this@MainActivity,"Слева — высота и рыскание. Справа — наклоны. × — к пульту.",Toast.LENGTH_LONG).show()
                     }
@@ -256,6 +313,36 @@ class MainActivity : GameActivity() {
         fun action(caption: String, icon: String, click: () -> Unit): HudButton = HudButton(this, caption, icon).apply {
             setOnClickListener { click() }
         }
+        val sprint=action("Бег", "") {}.apply { contentDescription="Бег: удерживать" }
+        sprintControl=sprint
+        sprint.setOnTouchListener { view,event ->
+            when(event.actionMasked){
+                MotionEvent.ACTION_DOWN -> { weapon.sprinting=true;nativeSprint(true);view.isPressed=true;true }
+                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> {
+                    weapon.sprinting=false;nativeSprint(false);view.isPressed=false
+                    if(event.actionMasked==MotionEvent.ACTION_UP)view.performClick()
+                    true
+                }
+                else -> true
+            }
+        }
+        overlay.addView(sprint,FrameLayout.LayoutParams(dp(66),dp(54),Gravity.BOTTOM or Gravity.START).apply {
+            leftMargin=dp(22);bottomMargin=dp(stickSize+30)
+        })
+        jetpackIndicator=label("▣ Джетпак",12f).apply { visibility=View.GONE;contentDescription="Джетпак надет" }
+        overlay.addView(jetpackIndicator,FrameLayout.LayoutParams(-2,dp(32),Gravity.TOP or Gravity.END).apply { topMargin=dp(8);rightMargin=dp(145) })
+        jetpackWear=Button(this).apply { text="Надеть джетпак";visibility=View.GONE;setOnClickListener { nativeCommand(61) } }
+        overlay.addView(jetpackWear,FrameLayout.LayoutParams(dp(150),dp(52),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin=dp(80) })
+        jetpackRemove=Button(this).apply { text="Снять джетпак";textSize=10f;visibility=View.GONE;setOnClickListener { nativeJetpackThrust(false);nativeCommand(62) } }
+        overlay.addView(jetpackRemove,FrameLayout.LayoutParams(dp(125),dp(44),Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin=dp(42) })
+        jetpackLift=Button(this).apply { text="Тяга ↑";visibility=View.GONE;contentDescription="Тяга джетпака: удерживать" }
+        jetpackLift.setOnTouchListener { view,event ->
+            when(event.actionMasked){
+                MotionEvent.ACTION_DOWN -> { nativeJetpackThrust(true);view.isPressed=true }
+                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> { nativeJetpackThrust(false);view.isPressed=false;if(event.actionMasked==MotionEvent.ACTION_UP)view.performClick() }
+            };true
+        }
+        overlay.addView(jetpackLift,FrameLayout.LayoutParams(dp(78),dp(60),Gravity.BOTTOM or Gravity.END).apply { bottomMargin=dp(92);rightMargin=dp(152) })
         val pause = action("", "pause") { showPauseMenu() }.apply { visualScale=.73f }
         pause.contentDescription = "Пауза"
         overlay.addView(pause, FrameLayout.LayoutParams(dp(60), dp(60), Gravity.TOP or Gravity.END).apply { topMargin=dp(6); rightMargin=dp(8) })
@@ -373,38 +460,14 @@ class MainActivity : GameActivity() {
         loading.addView(loadingText)
         overlay.addView(loading, FrameLayout.LayoutParams(-1, -1))
         nativeReady(false)
-        video = TextureView(this).also { texture ->
-            texture.isOpaque = true; texture.isClickable = true
-            overlay.addView(texture, FrameLayout.LayoutParams(-1, -1))
-            texture.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-                    if (videoEndedAt != Long.MAX_VALUE) return
-                    val surface = Surface(st)
-                    try {
-                        player = MediaPlayer().apply {
-                            assets.openFd("intro.mp4").use { setDataSource(it.fileDescriptor, it.startOffset, it.length) }
-                            setSurface(surface)
-                            setOnPreparedListener { if (active) it.start() }
-                            setOnCompletionListener { finishVideo() }
-                            setOnErrorListener { _, _, _ -> finishVideo(); true }
-                            prepareAsync()
-                        }
-                    } catch (_: Exception) { finishVideo() }
-                    finally { surface.release() }
-                }
-                override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
-                override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
-                override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
-                    if (videoEndedAt == Long.MAX_VALUE) finishVideo()
-                    return true
-                }
-            }
-        }
+        // Intro is now played on the third lobby monitor, not over the game.
+        introFinished=true
         dronePlace=action("Поставить дрон","build") { nativeCommand(41) }.apply { visibility=View.GONE }
         overlay.addView(dronePlace,FrameLayout.LayoutParams(dp(90),dp(70),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin=dp(10) })
         fpvLayer=FrameLayout(this).apply { visibility=View.GONE;isMotionEventSplittingEnabled=true }
         fpvControls=FpvControlView(this,{throttle,yaw,pitch,roll->nativeDroneInput(throttle,yaw,pitch,roll)},{x,y->nativeLook(x,y)})
         fpvLayer.addView(fpvControls,FrameLayout.LayoutParams(-1,-1))
+        fpvLayer.addView(action("Пауза","pause") { showLobby() },FrameLayout.LayoutParams(dp(76),dp(56),Gravity.TOP or Gravity.START).apply { topMargin=dp(8);leftMargin=dp(8) })
         fpvLayer.addView(action("Смена вида","switch") { nativeCommand(45) }.apply { contentDescription="Сменить вид: FPV или орбитальная камера" },FrameLayout.LayoutParams(dp(82),dp(64),Gravity.TOP or Gravity.END).apply { topMargin=dp(8);rightMargin=dp(76) })
         fpvLayer.addView(action("","remove") { fpvControls.reset();nativeCommand(42) }.apply { contentDescription="Выйти из FPV" },FrameLayout.LayoutParams(dp(60),dp(60),Gravity.TOP or Gravity.END).apply { topMargin=dp(8);rightMargin=dp(8) })
         overlay.addView(fpvLayer,FrameLayout.LayoutParams(-1,-1))
@@ -449,6 +512,8 @@ class MainActivity : GameActivity() {
         popup=panel;return panel
     }
     private fun renderTools() {
+        ControlEditorView.apply(hud,if(droneState in 3..5)"drone" else if(interactionCode==4)"car" else "player")
+        sprintControl.visibility=if(interactionCode==4)View.GONE else View.VISIBLE
         weapon.tool=toolsState.tool
         weapon.visibility=if(toolsState.viewmodelVisible&&interactionCode!=4)View.VISIBLE else View.GONE
         // Jump/crouch sit on top of the drive stick corner; hide them while driving.
@@ -497,6 +562,10 @@ class MainActivity : GameActivity() {
             container.addView(cards,LinearLayout.LayoutParams(-1,0,1f))
             return
         }
+        if(category==2){
+            container.addView(Button(this).apply { text="Джетпак · взять в руки";setOnClickListener { nativeCommand(60);closePopup() } },LinearLayout.LayoutParams(-1,dp(64)))
+            return
+        }
         if(visibleItems.isEmpty()){
             container.addView(label("В этом разделе пока нет предметов",14f).apply { gravity=Gravity.CENTER },LinearLayout.LayoutParams(-1,0,1f))
             return
@@ -533,24 +602,10 @@ class MainActivity : GameActivity() {
     }
     private fun setPaused(value: Boolean) {
         if(::toolWheel.isInitialized)toolWheel.cancel()
-        closePopup();paused=value;joystick.reset();lookArea.reset();if(::driveStick.isInitialized)driveStick.reset();weapon.running=!value && active;nativeVertical(0f)
+        closePopup();weapon.sprinting=false;nativeSprint(false);nativeJetpackThrust(false);paused=value;joystick.reset();lookArea.reset();if(::driveStick.isInitialized)driveStick.reset();weapon.running=!value && active;nativeVertical(0f)
         nativeReady(worldReady && active && !paused)
     }
-    private fun showPauseMenu() {
-        setPaused(true)
-        val dialog=AlertDialog.Builder(this).setTitle("Пауза")
-            .setItems(arrayOf("Продолжить",if(flyingNow) "Выключить полёт" else "Включить полёт","На дорогу","Восстановить УАЗ","На спавн","Камера: 1-е / 3-е лицо","Отчёт о вылете")) { _, which ->
-                setPaused(false)
-                if(which==1)nativeCommand(6)
-                if(which==2)nativeCommand(7)
-                if(which==3)nativeCommand(34)
-                if(which==4)nativeCommand(35)
-                if(which==5)nativeCommand(46)
-                if(which==6)handler.post { showExitReport() }
-            }.create()
-        dialog.setOnDismissListener { setPaused(false);hideSystemUi() }
-        dialog.show()
-    }
+    private fun showPauseMenu() { showLobby() }
     @Volatile private var exitReport = "Отчёт ещё готовится. Откройте этот пункт через несколько секунд."
     private fun collectExitReport() {
         catalogExecutor.execute {
@@ -603,6 +658,7 @@ class MainActivity : GameActivity() {
         if(::toolWheel.isInitialized)toolWheel.cancel()
         if(::fpvControls.isInitialized)fpvControls.reset()
         closePopup();weapon.running=false
+        weapon.sprinting=false;nativeSprint(false)
         active = false; nativeReady(false)
         if (::joystick.isInitialized) joystick.reset();if (::driveStick.isInitialized) driveStick.reset();if (::lookArea.isInitialized)lookArea.reset()
         try { player?.pause() } catch (_: IllegalStateException) {}
@@ -617,7 +673,7 @@ class MainActivity : GameActivity() {
     override fun onDestroy() { catalogExecutor.shutdownNow();nativeReady(false); player?.release(); player = null; handler.removeCallbacks(poll); super.onDestroy() }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideSystemUi() else { nativeVertical(0f); if (::joystick.isInitialized) joystick.reset();if (::driveStick.isInitialized) driveStick.reset();if (::lookArea.isInitialized)lookArea.reset() }
+        if (hasFocus) hideSystemUi() else { if(::weapon.isInitialized)weapon.sprinting=false;nativeSprint(false);nativeVertical(0f); if (::joystick.isInitialized) joystick.reset();if (::driveStick.isInitialized) driveStick.reset();if (::lookArea.isInitialized)lookArea.reset() }
     }
     @Suppress("DEPRECATION")
     private fun hideSystemUi() {
