@@ -64,7 +64,7 @@ public:
     Vec3 feet()const{return feet_;}
     float eyeHeight()const{return eye_;}
     bool overlaps(const CollisionMesh&mesh,float x,float eyeY,float z)const{return contacts(mesh,{x,eyeY-1.7f,z},1.8f);}
-    void update(const CollisionMesh&mesh,float right,float forward,float yaw,float dt,bool crouched,float &x,float &y,float &z,const CollisionMesh *extra=nullptr,bool prone=false,const CollisionMesh *fenceBarriers=nullptr){
+    void update(const CollisionMesh&mesh,float right,float forward,float yaw,float dt,bool crouched,float &x,float &y,float &z,const CollisionMesh *extra=nullptr,bool prone=false,const CollisionMesh *fenceBarriers=nullptr,bool sprint=false){
         if(!initialized_)reset(x,y,z);
         // Crouch keeps the feet still; standing up is refused under a concrete frame/ceiling.
         float desired=prone?.55f:crouched?1.f:1.8f;
@@ -76,7 +76,7 @@ public:
         while(accumulator_>=step){
             accumulator_-=step;bool wasGrounded=grounded_;
             if(jump_&&grounded_&&!prone){velocity_=6.5f;grounded_=false;wasGrounded=false;}jump_=false;
-            float lengthInput=std::max(1.f,std::hypot(right,forward)),speed=height_<.6f?1.f:height_<1.5f?2.2f:4.5f;
+            float lengthInput=std::max(1.f,std::hypot(right,forward)),speed=height_<.6f?1.f:height_<1.5f?2.2f:sprint?5.8f:2.7f;
             Vec3 before=feet_;
             feet_.x+=(std::cos(yaw)*right-std::sin(yaw)*forward)/lengthInput*speed*step;
             feet_.z+=(-std::sin(yaw)*right-std::cos(yaw)*forward)/lengthInput*speed*step;
