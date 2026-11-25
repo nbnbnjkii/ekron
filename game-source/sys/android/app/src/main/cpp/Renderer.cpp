@@ -29,7 +29,7 @@ bool retainedFlying=false;
 std::atomic<int> loadStage{0},debugNotice{0},loadPercent{0};
 std::atomic<float> verticalInput{0};
 std::atomic<float> stickRight{0},stickForward{0};
-std::atomic<bool> gameplayReady{false};
+std::atomic<bool> gameplayReady{false},sprintInput{false};
 std::atomic<int> currentTool{0},currentSelection{0},currentSurface{-1},interactionAction{0},freezeState{0};
 std::atomic<int> droneMode{0};
 std::atomic<float> droneThrottle{0},droneYawInput{0},dronePitchInput{0},droneRollInput{0};
@@ -171,7 +171,7 @@ void cube(std::vector<Vertex>&v,const sandbox::Box&b){sandbox::appendCube(v,b);}
 
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeReady(JNIEnv*,jobject,jboolean ready){gameplayReady=ready;if(!ready){stickRight=0;stickForward=0;verticalInput=0;}}
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeReady(JNIEnv*,jobject,jboolean ready){gameplayReady=ready;if(!ready){sprintInput=false;stickRight=0;stickForward=0;verticalInput=0;}}
 extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeDroneInput(JNIEnv*,jobject,jfloat throttle,jfloat yaw,jfloat pitch,jfloat roll){
  auto clean=[](float v){return gameplayReady&&std::isfinite(v)?std::clamp(v,-1.f,1.f):0.f;};
  droneThrottle=clean(throttle);droneYawInput=clean(yaw);dronePitchInput=clean(pitch);droneRollInput=clean(roll);
@@ -180,6 +180,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLoo
  if(!gameplayReady||!std::isfinite(dx)||!std::isfinite(dy))return;
  std::lock_guard<std::mutex> lock(commandMutex);lookDx=std::clamp(lookDx+dx,-400.f,400.f);lookDy=std::clamp(lookDy+dy,-400.f,400.f);
 }
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeSprint(JNIEnv*,jobject,jboolean pressed){sprintInput=gameplayReady&&pressed;}
 extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeMove(JNIEnv*,jobject,jfloat right,jfloat forward){
  stickRight=gameplayReady&&std::isfinite(right)?std::clamp(right,-1.f,1.f):0;
  stickForward=gameplayReady&&std::isfinite(forward)?std::clamp(forward,-1.f,1.f):0;
@@ -439,7 +440,7 @@ void Renderer::render(){
   if(seatedCar_>=0){auto seat=sandbox::driverSeat(world_.objects[seatedCar_]);seatTime_=std::min(1.f,seatTime_+dt/.65f);float t=seatTime_*seatTime_*(3-2*seatTime_);auto p=seatFrom_+(seat-seatFrom_)*t;world_.x=p.x;world_.y=p.y;world_.z=p.z;}
  }
  if(gameplayReady&&seatedCar_<0&&!drone_.piloting()){if(flying_)city::fly(world_,stickRight.load(),stickForward.load(),verticalInput.load(),dt);
- else if(city_.ready())player_.update(*city_.scene().collision,stickRight.load(),stickForward.load(),world_.yaw,dt,crouched_,world_.x,world_.y,world_.z,&builtCollision_,prone_,city_.scene().fenceBarriers.get());
+ else if(city_.ready())player_.update(*city_.scene().collision,stickRight.load(),stickForward.load(),world_.yaw,dt,crouched_,world_.x,world_.y,world_.z,&builtCollision_,prone_,city_.scene().fenceBarriers.get(),sprintInput.load());
  else world_.move(stickRight.load(),stickForward.load(),dt);}
  if(city_.ready()){
   if(seatedCar_<0&&!flying_&&sandbox::needsPlayerRecovery(world_,city_.scene().minimum,city_.scene().maximum))respawnPlayer();

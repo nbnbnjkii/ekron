@@ -10,6 +10,7 @@ import kotlin.math.sin
 class ToolArtView(context: Context, private val firstPerson: Boolean = false) : View(context) {
     var tool=HandTool.HAND_EMPTY
         set(value) { if(field!=value){field=value;invalidate()} }
+    var sprinting=false
     var moving=false
     var running=false
         set(value) { field=value;if(value)invalidate() }
@@ -19,7 +20,7 @@ class ToolArtView(context: Context, private val firstPerson: Boolean = false) : 
         c.save();c.scale(width/240f,height/150f)
         if(firstPerson) {
             val phase=SystemClock.uptimeMillis()/1000f*8
-            if(running && moving)c.translate(sin(phase)*2.5f,sin(phase*2)*1.8f)
+            if(running && moving)c.translate(sin(phase)*(if(sprinting)2.5f else .8f),sin(phase*2)*(if(sprinting)1.8f else .5f))
         }
         val glow=when(tool){HandTool.SPAWN_GUN->Color.rgb(71,231,210);HandTool.GRAVITY_GUN->Color.rgb(255,173,54);else->Color.rgb(255,92,99)}
         fun polygon(vararg points: Float) {val path=Path();path.moveTo(points[0],points[1]);for(i in 2 until points.size step 2)path.lineTo(points[i],points[i+1]);path.close();c.drawPath(path,p)}
