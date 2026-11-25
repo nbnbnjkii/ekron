@@ -33,9 +33,9 @@ int main(){
  assert(!objectOverlap(side,turned,{bounds.x,bounds.y,bounds.z}));
  CollisionMesh touching;touching.addBox({.8f,-1,-5},{.9f,4,5});touching.build();
  assert(objectOverlap(touching,turned,{bounds.x,bounds.y,bounds.z}));
- World citySave;citySave.objects={{8,0,24,104},{12,0,500,-650}};
+ World citySave;citySave.x=120;citySave.y=3;citySave.z=104;citySave.yaw=.63f;citySave.equippedJetpack=2;citySave.objects={{8,0,24,104},{12,0,500,-650}};
  assert(citySave.save("/tmp/ekron-large-map-save.txt"));World restored;assert(restored.load("/tmp/ekron-large-map-save.txt"));
- assert(restored.objects.size()==2&&restored.objects[0].z==104);std::remove("/tmp/ekron-large-map-save.txt");
+ assert(restored.objects.size()==2&&restored.objects[0].z==104);assert(restored.hasPlayerState&&restored.x==120&&restored.y==3&&restored.equippedJetpack==2&&std::abs(restored.yaw-.63f)<.001f);std::remove("/tmp/ekron-large-map-save.txt");
  // Powered traversal clears a low kerb, but does not cross a tall wall.
  for(float obstacleHeight:{.12f,.20f,2.f}){
   CollisionMesh track;track.addBox({-30,-1,-30},{30,0,30});track.addBox({2.5f,0,-3},{3.f,obstacleHeight,3});track.build();

@@ -92,7 +92,7 @@ class MainActivity : GameActivity() {
             setPaused(false)
         }
         val room=LobbyView(this,{ leaveLobby() },{ leaveLobby();nativeCommand(63) },{ nativeRequestSave();lobby?.message("Сохранение…") })
-        room.canContinue=getSharedPreferences("session",0).getBoolean("started",false)
+        room.canContinue=getSharedPreferences("session",0).getBoolean("started",false)||java.io.File(filesDir,"military-city-20240229-v1.txt").exists()
         lobby=room;hud.visibility=View.INVISIBLE
         addContentView(room,ViewGroup.LayoutParams(-1,-1));room.refresh()
     }

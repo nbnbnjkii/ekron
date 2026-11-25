@@ -297,7 +297,8 @@ void Renderer::advanceLoading(){
   bool exists=std::any_of(world_.objects.begin(),world_.objects.end(),[](const sandbox::Object&o){return o.type==8;});
   if(data.carValid&&!restoredWorld&&!exists&&world_.objects.size()<sandbox::World::limit){sandbox::Object car{8,0,data.parkingX,data.parkingZ};car.y=data.parkingY+.5f;world_.objects.push_back(car);}
   const auto config=readSpawnConfig(app_);
-  if(!retainedWorld&&config.enabled){world_.x=config.x;world_.y=config.y;world_.z=config.z;world_.yaw=config.yawDegrees*.01745329252f;world_.pitch=0;flying_=config.startFlying;}
+  if(!retainedWorld&&(!restoredWorld||!world_.hasPlayerState)&&config.enabled){world_.x=config.x;world_.y=config.y;world_.z=config.z;world_.yaw=config.yawDegrees*.01745329252f;world_.pitch=0;flying_=config.startFlying;}
+  jetpack_.state=static_cast<sandbox::Jetpack::State>(world_.equippedJetpack);jetpackState=world_.equippedJetpack;
   player_.setBoundary(city_.scene().minimum[0],city_.scene().maximum[0],city_.scene().minimum[2],city_.scene().maximum[2]);
   player_.reset(world_.x,world_.y,world_.z);rebuildBuiltCollision();assetsInstalled_=true;loadStage=4;
  }
@@ -322,8 +323,9 @@ Renderer::~Renderer(){
  if(assetsJob_.valid())assetsJob_.wait();
  tools_.cancel(world_);
  if(saveJob_.valid())saveJob_.get();
+ world_.equippedJetpack=int(jetpack_.state);
  if(saveDirty_)world_.save(savePath_);
- if(assetsInstalled_){retainedWorld=world_;retainedDrone=drone_;retainedTool=tools_.tool;retainedFlying=flying_;}
+ if(assetsInstalled_){world_.equippedJetpack=int(jetpack_.state);retainedWorld=world_;retainedDrone=drone_;retainedTool=tools_.tool;retainedFlying=flying_;}
  if(display_!=EGL_NO_DISPLAY){if(context_!=EGL_NO_CONTEXT&&surface_!=EGL_NO_SURFACE&&eglMakeCurrent(display_,surface_,surface_,context_)){militaryEffects_.release();droneModel_.release();remote_.release();car_.release();city_.release();textures_.release();if(skyProgram_)glDeleteProgram(skyProgram_);if(buffer_)glDeleteBuffers(1,&buffer_);if(vao_)glDeleteVertexArrays(1,&vao_);if(program_)glDeleteProgram(program_);}eglMakeCurrent(display_,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);if(context_!=EGL_NO_CONTEXT)eglDestroyContext(display_,context_);if(surface_!=EGL_NO_SURFACE)eglDestroySurface(display_,surface_);eglTerminate(display_);}
 }
 void Renderer::uploadDynamic(const std::vector<sandbox::MeshVertex>&vertices){
@@ -354,7 +356,7 @@ void Renderer::handleInput(){
     if(command==61)jetpack_.wear();
     if(command==62)jetpack_.remove();
    }
-   jetpackThrust=false;jetpackState=int(jetpack_.state);continue;
+   jetpackThrust=false;jetpackState=int(jetpack_.state);saveDirty_=true;continue;
   }
 
   if(command==45&&city_.ready()){drone_.toggleView(*city_.scene().collision,builtCollision_);continue;}
@@ -448,6 +450,8 @@ void Renderer::handleInput(){
  if(!saveJob_.valid()&&assetsInstalled_&&(saveDirty_||manualSaveRequested.load())){
   bool explicitSave=manualSaveRequested.exchange(false);
   sandbox::World saved;saved.objects=world_.objects;
+  saved.x=world_.x;saved.y=world_.y;saved.z=world_.z;saved.yaw=world_.yaw;saved.pitch=world_.pitch;saved.equippedJetpack=int(jetpack_.state);
+  if(seatedCar_>=0){saved.x=seatFrom_.x;saved.y=seatFrom_.y;saved.z=seatFrom_.z;}
   if(seatedCar_>=0&&size_t(seatedCar_)<saved.objects.size())saved.objects[seatedCar_].anchored=carWasAnchored_;
   if(tools_.holding()&&size_t(tools_.held)<saved.objects.size())saved.objects[tools_.held]=tools_.original;
   auto path=savePath_;
