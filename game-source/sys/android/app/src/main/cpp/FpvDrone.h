@@ -103,8 +103,8 @@ struct FpvDrone {
    // Mode 2 radio layout: throttle/yaw on the left, pitch/roll on the right.
    yaw-=std::clamp(turn,-1.f,1.f)*1.8f*dt;
    float response=1-std::exp(-8*dt);
-   pitch+=(-std::clamp(forward,-1.f,1.f)*.42f-pitch)*response;
-   roll+=(std::clamp(right,-1.f,1.f)*.42f-roll)*response;
+   pitch+=(-std::clamp(forward,-1.f,1.f)*.8f-pitch)*response;
+   roll+=(std::clamp(right,-1.f,1.f)*.8f-roll)*response;
    float floor=std::max(city.groundHeight(position.x,position.z,position.y,position.y-.5f),built.groundHeight(position.x,position.z,position.y,position.y-.5f));
    if(std::isfinite(floor)){
     float available=std::max(0.f,position.y-floor-.101f),needed=radius*(std::abs(std::sin(pitch))+std::abs(std::sin(roll)));

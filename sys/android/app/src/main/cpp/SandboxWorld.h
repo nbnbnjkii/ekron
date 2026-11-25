@@ -12,10 +12,10 @@ enum Material { Asphalt=0, Concrete=1, Brick=2, Rust=3, Plain=4, Wood=5, Fabric=
 // Keep the original numeric IDs stable: saved worlds and the Android catalog
 // use these values as their wire format. New catalog entries append to this
 // range instead of renumbering existing furniture and vehicles.
-static constexpr int kObjectTypeCount=36;
+static constexpr int kObjectTypeCount=48;
 struct Box { float x,y,z,w,h,d,r,g,b; int material=Concrete; };
 struct WheelState {float compression=0,load=0;bool grounded=false;};
-struct Object { int type,rotation; float x,z; float y=0; float vx=0,vy=0,vz=0,tiltX=0,tiltZ=0;bool awake=true,anchored=false;int surface=-1;float doorAngle=0,doorTarget=0;bool frozen=false;float spinX=0,spinZ=0;float supportCheckTime=0;float restTime=0;float embeddedTime=0;bool destroyed=false;bool floorRecoveryUsed=false;bool edgeKick=false;std::array<WheelState,4> wheels{}; };
+struct Object { int type,rotation; float x,z; float y=0; float vx=0,vy=0,vz=0,tiltX=0,tiltZ=0,yaw=0;bool awake=true,anchored=false;int surface=-1;float doorAngle=0,doorTarget=0;bool frozen=false;float spinX=0,spinZ=0;float supportCheckTime=0;float restTime=0;float embeddedTime=0;bool destroyed=false;bool floorRecoveryUsed=false;bool edgeKick=false;std::array<WheelState,4> wheels{}; };
 struct WallSegment {float ax,az,bx,bz;};
 inline bool intersectsWall(const Box &box,const WallSegment &wall){
     // Slab test against a narrow 5 cm wall; respects diagonal walls and door gaps.
@@ -57,7 +57,9 @@ public:
             {1.9f,.42f,.45f}, {1.42f,.70f,.34f}, {1.6f,.84f,.5f}, {.75f,1.0f,.75f},
             {.7f,1.49f,.7f}, {1.8f,1.45f,.5f}, {.72f,.20f,.72f}, {1.8f,1.45f,.45f},
             {.8f,.45f,.68f}, {.18f,2.4f,.18f}, {2.0f,.3f,.3f}, {1.15f,.82f,.8f},
-            {.72f,1.14f,.72f},{.6f,.6f,.6f},{1.4f,1.4f,1.4f},{.7f,.7f,.7f},{1.3f,1.3f,1.3f},{1.5f,.5f,.6f},{2.4f,.8f,.8f}
+            {.72f,1.14f,.72f},{.6f,.6f,.6f},{1.4f,1.4f,1.4f},{.7f,.7f,.7f},{1.3f,1.3f,1.3f},{1.5f,.5f,.6f},{2.4f,.8f,.8f},
+            {1.2f,.75f,.55f},{1.7f,.65f,.65f},{1.5f,1.5f,1.5f},{.9f,.5f,.45f},{1.4f,.5f,.5f},{1.1f,1.25f,1.1f},
+            {.5f,.65f,.28f},{2.4f,1.7f,2.f},{2.4f,1.9f,.3f},{1.3f,1.15f,.9f},{.85f,1.15f,.85f},{.7f,.45f,.45f}
         };
         int type=std::clamp(o.type,0,kObjectTypeCount-1);
         auto p=dims[type];
@@ -79,20 +81,31 @@ public:
         if(o.type==23)return 9.f;
         if(o.type==24)return 180.f;
         if(o.type==25)return 14.f;
+        if(o.type==36)return 60.f;
+        if(o.type==37)return 15.f;
+        if(o.type==38)return 120.f;
+        if(o.type==39)return 24.f;
+        if(o.type==40)return 48.f;
+        if(o.type==41)return 650.f;
+        if(o.type==42)return 22.f;
+        if(o.type==43)return 85.f;
+        if(o.type==44)return 30.f;
+        if(o.type==45)return 75.f;
+        if(o.type==46)return 95.f;
+        if(o.type==47)return 12.f;
         return o.type>=13?50.f:90.f;
     }
     static int fixedSurface(int type) {
-        if(type==11||type==14||type==16||type==17||type==19||type==20||type==21||type==23||type==26)return Rust;
-        if(type==29)return -1;
-        if(type==30||type==31)return Wood;
-        if(type==32||type==33)return Rust;
-        if(type>=34&&type<=35)return Concrete;
-        if(type==8||type==2)return -1;
-        if(type==9||type==3||type==4||type==5||type==6||type==13||type==15||type==17||type==22)return Wood;
+        // Models that own their materials: window (glass + wood), the GLB UAZ and
+        // the plain-painted red explosive barrel. Everything else has one fixed surface.
+        if(type==2||type==8||type==29)return -1;
+        // Military props (crates, tents, fuel drums...) paint their own parts.
+        if(type>=36)return -1;
+        if(type==11||type==14||type==16||type==19||type==20||type==21||type==23||type==25||type==26||type==27||type==28||type==32||type==33)return Rust;
+        if(type==9||type==3||type==4||type==5||type==6||type==13||type==15||type==17||type==22||type==30||type==31)return Wood;
         if(type==10)return Brick;
-        if(type==18||type==24)return Concrete;
         if(type==7)return Fabric;
-        return Concrete;
+        return Concrete; // 0,1,12,18,24,34,35
     }
     static bool overlap(const Box&a,const Box&b) {
         return std::abs(a.x-b.x)<(a.w+b.w)/2 && std::abs(a.z-b.z)<(a.d+b.d)/2;
@@ -156,7 +169,7 @@ public:
         std::ifstream f(path);std::string magic;int count;
         if(!(f>>magic>>count)||(magic!="EKRON_SANDBOX_1"&&magic!="EKRON_SANDBOX_2"&&magic!="EKRON_SANDBOX_3"&&magic!="EKRON_SANDBOX_4"&&magic!="EKRON_SANDBOX_5"&&magic!="EKRON_SANDBOX_6")||count<0||count>limit)return false;
         std::vector<Object> incoming;
-        for(int i=0;i<count;i++){Object o{};if(!(f>>o.type>>o.rotation>>o.x>>o.z)||(magic!="EKRON_SANDBOX_1"&&!(f>>o.y))||((magic=="EKRON_SANDBOX_3"||magic=="EKRON_SANDBOX_4"||magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.anchored))||((magic=="EKRON_SANDBOX_4"||magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.surface))||((magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.frozen))||(magic=="EKRON_SANDBOX_6"&&(!(f>>o.tiltX>>o.tiltZ)||!std::isfinite(o.tiltX)||!std::isfinite(o.tiltZ)))||o.surface < -1||o.surface>6||o.type<0||o.type>=kObjectTypeCount||o.rotation<0||o.rotation>=4||!std::isfinite(o.x)||!std::isfinite(o.z)||!std::isfinite(o.y)||std::abs(o.y)>200||std::abs(o.x)>62||std::abs(o.z)>62)return false;incoming.push_back(o);}
+        for(int i=0;i<count;i++){Object o{};if(!(f>>o.type>>o.rotation>>o.x>>o.z)||(magic!="EKRON_SANDBOX_1"&&!(f>>o.y))||((magic=="EKRON_SANDBOX_3"||magic=="EKRON_SANDBOX_4"||magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.anchored))||((magic=="EKRON_SANDBOX_4"||magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.surface))||((magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.frozen))||(magic=="EKRON_SANDBOX_6"&&(!(f>>o.tiltX>>o.tiltZ)||!std::isfinite(o.tiltX)||!std::isfinite(o.tiltZ)))||o.surface < -1||o.surface>6||o.type<0||o.type>=kObjectTypeCount||o.rotation<0||o.rotation>=4||!std::isfinite(o.x)||!std::isfinite(o.z)||!std::isfinite(o.y)||std::abs(o.y)>200||std::abs(o.x)>62||std::abs(o.z)>62)return false;if(o.type==8)o.yaw=o.rotation*1.57079632679f;incoming.push_back(o);}
         objects=std::move(incoming);return true;
     }
 private:

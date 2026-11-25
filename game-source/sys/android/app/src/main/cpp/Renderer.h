@@ -37,6 +37,10 @@ private:
     military::Effects militaryEffects_;
     sandbox::PlayerView playerView_;
     sandbox::BlastEffects blasts_;
+    bool crashSpectating_=false;
+    float crashSpectateTime_=0;
+    physics::Vec3 crashSpectateFrom_{},crashSpectateTarget_{};
+    bool carChase_=false;
     float rotorPhase_=0;
     city::GltfRenderer city_;
     city::GltfRenderer car_;

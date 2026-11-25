@@ -159,7 +159,7 @@ public:
      float ix=(b.h*b.h+b.d*b.d)/12,iz=(b.w*b.w+b.h*b.h)/12;
      float incoming=tx*o.spinX+tz*o.spinZ,denom=tx*tx/ix+tz*tz/iz;
      if(incoming<0&&denom>1e-7f){float impulse=-incoming/denom;o.spinX+=tx*impulse/ix;o.spinZ+=tz*impulse/iz;}
-     o.y=support+.003f;o.vy=std::abs(o.vy)>2?-o.vy*contactMaterial(o).restitution:0;
+     o.vy=std::abs(o.vy)>2?-o.vy*contactMaterial(o).restitution:0;
      // Rest on the current rotated body, not on an upright replacement.
      o.y=support+verticalRadius-half.y+.005f;
      // Contact is dissipative. Terrain gradients must not continuously inject
@@ -192,13 +192,20 @@ public:
       o.y=surface+radius()-half.y+.02f;o.vx=o.vy=o.vz=o.spinX=o.spinZ=0;o.floorRecoveryUsed=true;o.restTime=0;
      }
     }
-    if(recoverCityContact(o,mesh)>.002f){o.awake=true;o.restTime=0;}
+    // Only a real deep embedding re-wakes a settling body. Sub-centimetre seam
+    // corrections may reposition the frame but must not keep resetting rest,
+    // which is what made thrown props hover/bounce instead of lying flat.
+    if(recoverCityContact(o,mesh)>.01f){o.awake=true;o.restTime=0;}
     solveCityContactVelocities(o,mesh);
     // Judge rest only after every normal/friction impulse has been solved.
     // Intermediate velocities before the manifold solve are not physical rest
-    // velocities (in particular at a sloped triangle seam).
+    // velocities (in particular at a sloped triangle seam). A body balancing on
+    // a corner/edge has balanced=false but is still genuinely at rest once its
+    // motion is frozen; otherwise it vibrates forever instead of sleeping.
     if(o.type!=8||suspension.contacts==0){
-     if(restingContact&&(balanced||cityWall)&&std::hypot(o.vx,o.vz)<.025f&&std::abs(o.vy)<.025f&&std::hypot(o.spinX,o.spinZ)<.03f){
+     float linearSpeed=std::hypot(o.vx,o.vz),angularSpeed=std::hypot(o.spinX,o.spinZ);
+     bool frozenInPlace=linearSpeed<.015f&&std::abs(o.vy)<.015f&&angularSpeed<.008f;
+     if(restingContact&&(balanced||cityWall||frozenInPlace)&&linearSpeed<.025f&&std::abs(o.vy)<.025f&&angularSpeed<.03f){
       o.restTime+=step;if(o.restTime>.35f){o.vx=o.vy=o.vz=o.spinX=o.spinZ=0;o.awake=false;}
      }else o.restTime=0;
     }

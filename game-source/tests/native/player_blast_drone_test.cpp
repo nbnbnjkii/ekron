@@ -16,7 +16,7 @@ int main(){
  view.toggle();for(int i=0;i<60;i++)view.camera(eye,0,0,.016f,true,empty,empty);assert(length(view.camera(eye,0,0,0,true,empty,empty)-eye)<.001f);
  std::vector<MeshVertex> avatar;view.append(avatar,eye,false,false);assert(avatar.size()>1000);
  World w;w.objects={{30,0,1,0},{32,0,2,0}};BlastEffects effects;effects.explode(w,{0,.5f,0});
- assert(effects.fragmentCount()==8);assert(w.objects[0].vx>0&&w.objects[0].vy>0);
+ assert(effects.fragmentCount()==36);assert(w.objects[0].vx>0&&w.objects[0].vy>0);
  for(int i=0;i<100;i++)effects.explode(w,{0,.5f,0});
  assert(effects.fragmentCount()==128);
  for(int i=0;i<100;i++)effects.update(.05f,floor,empty);

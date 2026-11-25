@@ -40,6 +40,8 @@ class MainActivity : GameActivity() {
     private external fun nativeDroneInput(throttle:Float,yaw:Float,pitch:Float,roll:Float)
     private external fun nativeSprint(pressed: Boolean)
     private external fun nativeMove(right: Float, forward: Float)
+    private external fun nativeDriveSteer(steer: Float)
+    private external fun nativeDriveThrottle(throttle: Float)
     private external fun nativeLook(dx: Float, dy: Float)
     private lateinit var lookArea: LookView
     private lateinit var fpvLayer: FrameLayout
@@ -53,6 +55,9 @@ class MainActivity : GameActivity() {
     private var flyingNow = false
     private lateinit var sprintControl: HudButton
     private lateinit var joystick: StickView
+    private lateinit var driveStick: StickView
+    private lateinit var movementControls: LinearLayout
+    private var wasDriving = false
     private val toolsState = ToolState()
     private var requestedTool: HandTool? = null
     private lateinit var toolActions: LinearLayout
@@ -67,6 +72,7 @@ class MainActivity : GameActivity() {
     private lateinit var rotateHeldControl: HudButton
     private lateinit var crouchControl: HudButton
     private lateinit var proneControl: HudButton
+    private lateinit var viewToggle: HudButton
     private val items = BuildCatalog.entries.map { it.label }.toTypedArray()
     private val catalogImages=arrayOfNulls<Bitmap>(BuildCatalog.entries.size)
     private val catalogExecutor=Executors.newSingleThreadExecutor()
@@ -114,8 +120,18 @@ class MainActivity : GameActivity() {
                     if(state.size>=12){interactionCode=state[11].toInt();interactionControl.visibility=if(interactionCode>0)View.VISIBLE else View.GONE
                         interactionControl.caption=when(interactionCode){6->"Подключиться";1->"Открыть";2->"Закрыть";3->"Сесть";4->"Выйти";else->""}
                         interactionControl.contentDescription=interactionControl.caption;interactionControl.invalidate()
+                        if(::driveStick.isInitialized){val driving=interactionCode==4;driveStick.visibility=if(driving)View.VISIBLE else View.GONE
+                            if(!driving){driveStick.reset();if(wasDriving){joystick.reset();nativeDriveThrottle(0f)}}
+                            wasDriving=driving
+                            // Keep the exit button clear of the drive stick area.
+                            val stick=(resources.configuration.screenHeightDp*.32f).toInt().coerceIn(120,184)
+                            val lp=interactionControl.layoutParams as FrameLayout.LayoutParams
+                            val margin=dp(if(driving)stick+30 else 8)
+                            if(lp.bottomMargin!=margin){lp.bottomMargin=margin;interactionControl.layoutParams=lp}
+                        }
                     }
                     if(state.size>=13){freezeControl.caption=if(state[12]>.5f) "Разморозить" else "Заморозить";freezeControl.contentDescription=freezeControl.caption;freezeControl.invalidate()}
+                    if(state.size>=15 && ::viewToggle.isInitialized){ viewToggle.isSelected=state[14]>.5f }
                     renderTools()
                 }
                 latest = state.copyOfRange(0, 3)
@@ -226,9 +242,18 @@ class MainActivity : GameActivity() {
         val screenHeight = resources.configuration.screenHeightDp
         val actionSize = (screenHeight * .145f).toInt().coerceIn(60, 64)
         val stickSize = (screenHeight * .32f).toInt().coerceIn(120, 184)
-        joystick = StickView(this) { right, forward -> weapon.moving=kotlin.math.hypot(right,forward)>.1f;nativeMove(right, forward) }
+        joystick = StickView(this) { right, forward ->
+            // Behind the wheel the left stick is the gas pedal: up = forward, down = reverse.
+            if(interactionCode==4){weapon.moving=false;nativeDriveThrottle(forward)}
+            else {weapon.moving=kotlin.math.hypot(right,forward)>.1f;nativeMove(right, forward)}
+        }
         overlay.addView(joystick, FrameLayout.LayoutParams(dp(stickSize), dp(stickSize), Gravity.BOTTOM or Gravity.START).apply {
             leftMargin = dp(14); bottomMargin = dp(22)
+        })
+        // Right stick only steers; the throttle lives on the left stick.
+        driveStick = StickView(this) { steer, _ -> nativeDriveSteer(steer) }.apply { visibility = View.GONE }
+        overlay.addView(driveStick, FrameLayout.LayoutParams(dp(stickSize), dp(stickSize), Gravity.BOTTOM or Gravity.END).apply {
+            rightMargin = dp(14); bottomMargin = dp(22)
         })
         fun action(caption: String, icon: String, click: () -> Unit): HudButton = HudButton(this, caption, icon).apply {
             setOnClickListener { click() }
@@ -252,6 +277,8 @@ class MainActivity : GameActivity() {
         val pause = action("", "pause") { showPauseMenu() }.apply { visualScale=.73f }
         pause.contentDescription = "Пауза"
         overlay.addView(pause, FrameLayout.LayoutParams(dp(60), dp(60), Gravity.TOP or Gravity.END).apply { topMargin=dp(6); rightMargin=dp(8) })
+        viewToggle=action("", "eye") { if(worldReady && active && !paused){ nativeCommand(46); viewToggle.isSelected=!viewToggle.isSelected } }.apply { visualScale=.73f; contentDescription="Сменить вид: от первого или от третьего лица" }
+        overlay.addView(viewToggle, FrameLayout.LayoutParams(dp(60), dp(60), Gravity.TOP or Gravity.END).apply { topMargin=dp(126); rightMargin=dp(8) })
         val movement = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; gravity=Gravity.CENTER; isMotionEventSplittingEnabled=true }
         val jump = action("Прыжок", "jump") { nativeCommand(8) }
         // Fire on press, not release. The joystick keeps its own pointer and axes untouched.
@@ -271,6 +298,7 @@ class MainActivity : GameActivity() {
             nativeCommand(10)
         }
         for (control in listOf(jump,crouchControl)) movement.addView(control, LinearLayout.LayoutParams(dp(actionSize),dp(actionSize)))
+        movementControls=movement
         overlay.addView(movement, FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM or Gravity.END).apply { bottomMargin=dp(8);rightMargin=dp(8) })
         toolWheel=ToolWheelView(this) { selectTool(it) }
         overlay.addView(toolWheel,FrameLayout.LayoutParams(-1,-1))
@@ -313,7 +341,8 @@ class MainActivity : GameActivity() {
         selectedSlot.addView(selectedImage,FrameLayout.LayoutParams(-1,-1))
         selectedSwatch=MaterialBlockView(this,selectedSurface)
         selectedSlot.addView(selectedSwatch,FrameLayout.LayoutParams(dp(25),dp(25),Gravity.BOTTOM or Gravity.END))
-        // Selection art remains available inside the catalogue, not as a duplicate HUD opener.
+        // Show the current selection right next to the place button so it is always visible.
+        spawnActions.addView(selectedSlot,LinearLayout.LayoutParams(dp(64),dp(64)).apply { bottomMargin=dp(4);rightMargin=dp(4) })
         addControl(spawnActions,"","build") { if(requestedTool==null)nativeCommand(200+BuildCatalog.entries[selected].nativeType) }.apply { contentDescription="Установить выбранный предмет" }
         val turns=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
         addControl(turns,"","left") { nativeCommand(31) }.apply { contentDescription="Повернуть влево" }
@@ -433,13 +462,16 @@ class MainActivity : GameActivity() {
         panel.addView(heading)
         val height=resources.configuration.screenHeightDp
         val left=(height*.32f).toInt().coerceIn(120,184)+28
-        hud.addView(panel,FrameLayout.LayoutParams((hud.width-dp(left+150)).coerceAtLeast(dp(260)),dp((height-144).coerceAtLeast(152)),Gravity.TOP or Gravity.START).apply { leftMargin=dp(left);topMargin=dp(60) })
+        // Large grid area: keep only the right-side controls clear, use most of the screen height.
+        hud.addView(panel,FrameLayout.LayoutParams((hud.width-dp(left+96)).coerceAtLeast(dp(260)),dp((height-104).coerceAtLeast(152)),Gravity.TOP or Gravity.START).apply { leftMargin=dp(left);topMargin=dp(52) })
         popup=panel;return panel
     }
     private fun renderTools() {
         sprintControl.visibility=if(interactionCode==4)View.GONE else View.VISIBLE
         weapon.tool=toolsState.tool
         weapon.visibility=if(toolsState.viewmodelVisible&&interactionCode!=4)View.VISIBLE else View.GONE
+        // Jump/crouch sit on top of the drive stick corner; hide them while driving.
+        if(::movementControls.isInitialized)movementControls.visibility=if(interactionCode!=4)View.VISIBLE else View.GONE
         updateSelectedIcon()
         catalogControl.visibility=if(interactionCode!=4)View.VISIBLE else View.GONE
         spawnActions.visibility=if(toolsState.spawnVisible&&interactionCode!=4)View.VISIBLE else View.GONE
@@ -496,19 +528,17 @@ class MainActivity : GameActivity() {
             override fun getView(row: Int, convertView: View?, parent: ViewGroup): View = LinearLayout(this@MainActivity).apply {
                 val position=visibleItems[row]
                 orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER
-                contentDescription=items[position];minimumHeight=dp(84)
-                layoutParams=AbsListView.LayoutParams(-1,dp(84))
+                contentDescription=items[position];minimumHeight=dp(88)
+                layoutParams=AbsListView.LayoutParams(-1,dp(88))
                 background=GradientDrawable().apply {setColor(if(position==selected)0xaa477264.toInt() else 0x443b4652);cornerRadius=dp(6).toFloat();if(position==selected)setStroke(dp(1),0xff92d9ac.toInt())}
-                val item=BuildCatalog.entries[position]
-                val illustration: View=if(item.nativeType==0||item.nativeType==9||item.nativeType==10||item.nativeType==11||item.nativeType==12||item.nativeType>=13)MaterialBlockView(this@MainActivity,item.defaultSurface).apply { texture=BuildCatalog.materialPreview(materialImages,item.defaultSurface) }
-                else ImageView(this@MainActivity).apply {
+                val illustration: View = ImageView(this@MainActivity).apply {
                     scaleType=ImageView.ScaleType.FIT_CENTER
                     val image=catalogImages[position]
                     if(image!=null)setImageBitmap(image) else setImageResource(android.R.drawable.ic_menu_gallery)
                 }
                 illustration.isClickable=false;illustration.isFocusable=false
                 addView(illustration,LinearLayout.LayoutParams(-1,0,1f))
-                addView(label(items[position],10f).apply { gravity=Gravity.CENTER;isClickable=false },LinearLayout.LayoutParams(-1,dp(22)))
+                addView(label(items[position],10f).apply { gravity=Gravity.CENTER;isClickable=false;maxLines=2 },LinearLayout.LayoutParams(-1,dp(28)))
             }
         }
         catalogAdapter=adapter;grid.adapter=adapter;container.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
@@ -522,7 +552,7 @@ class MainActivity : GameActivity() {
     }
     private fun setPaused(value: Boolean) {
         if(::toolWheel.isInitialized)toolWheel.cancel()
-        closePopup();weapon.sprinting=false;nativeSprint(false);paused=value;joystick.reset();lookArea.reset();weapon.running=!value && active;nativeVertical(0f)
+        closePopup();weapon.sprinting=false;nativeSprint(false);paused=value;joystick.reset();lookArea.reset();if(::driveStick.isInitialized)driveStick.reset();weapon.running=!value && active;nativeVertical(0f)
         nativeReady(worldReady && active && !paused)
     }
     private fun showPauseMenu() {
@@ -594,7 +624,7 @@ class MainActivity : GameActivity() {
         closePopup();weapon.running=false
         weapon.sprinting=false;nativeSprint(false)
         active = false; nativeReady(false)
-        if (::joystick.isInitialized) joystick.reset();if (::lookArea.isInitialized)lookArea.reset()
+        if (::joystick.isInitialized) joystick.reset();if (::driveStick.isInitialized) driveStick.reset();if (::lookArea.isInitialized)lookArea.reset()
         try { player?.pause() } catch (_: IllegalStateException) {}
         handler.removeCallbacks(poll); nativeVertical(0f)
         super.onPause()
@@ -607,7 +637,7 @@ class MainActivity : GameActivity() {
     override fun onDestroy() { catalogExecutor.shutdownNow();nativeReady(false); player?.release(); player = null; handler.removeCallbacks(poll); super.onDestroy() }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideSystemUi() else { weapon.sprinting=false;nativeSprint(false); nativeVertical(0f); if (::joystick.isInitialized) joystick.reset();if (::lookArea.isInitialized)lookArea.reset() }
+        if (hasFocus) hideSystemUi() else { if(::weapon.isInitialized)weapon.sprinting=false;nativeSprint(false);nativeVertical(0f); if (::joystick.isInitialized) joystick.reset();if (::driveStick.isInitialized) driveStick.reset();if (::lookArea.isInitialized)lookArea.reset() }
     }
     @Suppress("DEPRECATION")
     private fun hideSystemUi() {

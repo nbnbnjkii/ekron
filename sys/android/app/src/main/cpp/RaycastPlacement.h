@@ -30,7 +30,7 @@ public:
   bool found=city.raycast(origin,dir,20,hit);
   if(built.raycast(origin,dir,found?hit.distance:20,other)){hit=other;found=true;}
   if(!found||hit.distance<.35f||w.objects.size()>=World::limit)return {};
-  Object candidate{w.selected,w.rotation,0,0};auto b=World::bounds(candidate);
+  Object candidate{w.selected,w.rotation,0,0};candidate.yaw=candidate.type==8?candidate.rotation*1.57079632679f:0.f;auto b=World::bounds(candidate);
   float extent=std::abs(hit.normal.x)*b.w/2+std::abs(hit.normal.y)*b.h/2+std::abs(hit.normal.z)*b.d/2;
   auto center=hit.position+hit.normal*(extent+.0005f);
   candidate.x=center.x;candidate.z=center.z;candidate.y=center.y-b.h/2;
