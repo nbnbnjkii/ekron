@@ -18,17 +18,17 @@ class ControlEditorView(context:Context, root:ViewGroup, private val profile:Str
     private var lastX=0f;private var lastY=0f
     init {
         val origin=IntArray(2);root.getLocationOnScreen(origin)
-        fun scan(group:ViewGroup,path:String){for(i in 0 until group.childCount){val v=group.getChildAt(i);val key="$path/$i"
-            val control=v is HudButton||v is Button||v is StickView||v is FpvControlView
+        fun scan(group:ViewGroup,path:String,inDrone:Boolean=false){for(i in 0 until group.childCount){val v=group.getChildAt(i);val key="$path/$i"
+            val control=v is HudButton||v is Button||v is StickView
             if(control&&v.width>0&&v.height>0){
                 val label=v.contentDescription?.toString()?.takeIf { it.isNotBlank() }?:if(v is Button)v.text.toString() else v.javaClass.simpleName
-                val relevant=when(profile){"drone"->v is FpvControlView||label.contains("FPV")||label.contains("дрон",true);"car"->v is StickView||label.contains("Сесть")||label.contains("Выйти")||label.contains("вид",true);else->v !is FpvControlView}
+                val relevant=when(profile){"drone"->inDrone||label.contains("FPV")||label.contains("дрон",true);"car"->!inDrone&&(v is StickView||label.contains("Сесть")||label.contains("Выйти")||label.contains("вид",true));else->!inDrone}
                 if(relevant){val pos=IntArray(2);v.getLocationOnScreen(pos)
                     val dx=prefs.getFloat("$key.x",0f);val dy=prefs.getFloat("$key.y",0f)
                     val cx=pos[0]-origin[0]-v.translationX;val cy=pos[1]-origin[1]-v.translationY
                     targets.add(Target(v,key,label,RectF(cx,cy,cx+v.width,cy+v.height),dx,dy,prefs.getFloat("$key.s",1f)))
                 }
-            }else if(v is ViewGroup)scan(v,key)
+            }else if(v is ViewGroup)scan(v,key,inDrone||v is FpvControlView)
         }}
         scan(root,"")
     }
@@ -58,7 +58,7 @@ class ControlEditorView(context:Context, root:ViewGroup, private val profile:Str
     companion object {
         fun apply(root:ViewGroup,profile:String){val prefs=root.context.getSharedPreferences("controls-$profile",0)
             fun scan(group:ViewGroup,path:String){for(i in 0 until group.childCount){val v=group.getChildAt(i);val key="$path/$i"
-                if(v is HudButton||v is Button||v is StickView||v is FpvControlView){
+                if(v is HudButton||v is Button||v is StickView){
                     v.translationX=prefs.getFloat("$key.x",0f)*root.width;v.translationY=prefs.getFloat("$key.y",0f)*root.height
                     val s=prefs.getFloat("$key.s",1f);v.scaleX=s;v.scaleY=s
                 }else if(v is ViewGroup)scan(v,key)

@@ -1,6 +1,7 @@
 #include "../../sys/android/app/src/main/cpp/ObjectMesh.h"
 #include "../../sys/android/app/src/main/cpp/Interaction.h"
 #include "../../sys/android/app/src/main/cpp/BodyContacts.h"
+#include "../../sys/android/app/src/main/cpp/ObjectDynamics.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -35,6 +36,14 @@ int main(){
  World citySave;citySave.objects={{8,0,24,104},{12,0,500,-650}};
  assert(citySave.save("/tmp/ekron-large-map-save.txt"));World restored;assert(restored.load("/tmp/ekron-large-map-save.txt"));
  assert(restored.objects.size()==2&&restored.objects[0].z==104);std::remove("/tmp/ekron-large-map-save.txt");
+ // Powered traversal clears a low kerb, but does not cross a tall wall.
+ for(float obstacleHeight:{.12f,.20f,2.f}){
+  CollisionMesh track;track.addBox({-30,-1,-30},{30,0,30});track.addBox({2.5f,0,-3},{3.f,obstacleHeight,3});track.build();
+  World driving;driving.objects={{8,0,0,0}};ObjectDynamics dynamics;
+  for(int i=0;i<120;i++)dynamics.update(driving,track,1.f/120,-1,{-30,-5,-30},{30,20,30});
+  for(int i=0;i<480;i++){driving.objects[0].vx=3;driving.objects[0].awake=true;dynamics.update(driving,track,1.f/120,-1,{-30,-5,-30},{30,20,30});}
+  if(obstacleHeight<.3f)assert(driving.objects[0].x>5.f);else assert(driving.objects[0].x<.6f);
+ }
  std::cout<<"Car yaw: corners, seat and oriented collision consistent OK\n";
  return 0;
 }

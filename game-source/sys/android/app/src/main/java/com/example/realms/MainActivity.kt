@@ -64,11 +64,19 @@ class MainActivity : GameActivity() {
     private var controlsEditor:ControlEditorView?=null
     fun editControls(profile:String){
         if(controlsEditor!=null)return
+        // Measure hidden control groups without displaying them. Otherwise FPV
+        // sticks have zero dimensions until the first flight and cannot be edited.
+        val hidden=mutableListOf<View>()
+        fun reveal(group:ViewGroup){for(i in 0 until group.childCount){val v=group.getChildAt(i);if(v.visibility==View.GONE){hidden.add(v);v.visibility=View.INVISIBLE};if(v is ViewGroup)reveal(v)}}
+        reveal(hud)
+        hud.measure(View.MeasureSpec.makeMeasureSpec(hud.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(hud.height,View.MeasureSpec.EXACTLY))
+        hud.layout(hud.left,hud.top,hud.right,hud.bottom)
         val editor=ControlEditorView(this,hud,profile){
             controlsEditor?.let { (it.parent as? ViewGroup)?.removeView(it) };controlsEditor=null
             lobby?.visibility=View.VISIBLE;lobby?.refresh()
             ControlEditorView.apply(hud,profile)
         }
+        hidden.forEach { it.visibility=View.GONE }
         controlsEditor=editor;lobby?.visibility=View.INVISIBLE
         addContentView(editor,ViewGroup.LayoutParams(-1,-1))
     }
