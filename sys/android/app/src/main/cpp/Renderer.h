@@ -17,6 +17,7 @@
 #include "MilitaryEffects.h"
 #include "PlayerView.h"
 #include "BlastEffects.h"
+#include "Jetpack.h"
 struct android_app;
 class Renderer {
 public:
@@ -37,6 +38,8 @@ private:
     military::Effects militaryEffects_;
     sandbox::PlayerView playerView_;
     sandbox::BlastEffects blasts_;
+    sandbox::Jetpack jetpack_;
+    bool manualSaveInFlight_=false;
     bool crashSpectating_=false;
     float crashSpectateTime_=0;
     physics::Vec3 crashSpectateFrom_{},crashSpectateTarget_{};
