@@ -72,7 +72,7 @@ class MainActivity : GameActivity() {
         controlsEditor=editor;lobby?.visibility=View.INVISIBLE
         addContentView(editor,ViewGroup.LayoutParams(-1,-1))
     }
-    fun setLobbyMuted(muted:Boolean){getSharedPreferences("settings",0).edit().putBoolean("muted",muted).apply();player?.setVolume(if(muted)0f else 1f,if(muted)0f else 1f)}
+    fun setLobbyMuted(muted:Boolean){getSharedPreferences("settings",0).edit().putBoolean("muted",muted).apply();lobby?.setMuted(muted);player?.setVolume(if(muted)0f else 1f,if(muted)0f else 1f)}
     private fun showLobby(){
         if(lobby!=null)return
         nativeJetpackThrust(false)
@@ -451,33 +451,8 @@ class MainActivity : GameActivity() {
         loading.addView(loadingText)
         overlay.addView(loading, FrameLayout.LayoutParams(-1, -1))
         nativeReady(false)
-        video = TextureView(this).also { texture ->
-            texture.isOpaque = true; texture.isClickable = true
-            overlay.addView(texture, FrameLayout.LayoutParams(-1, -1))
-            texture.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-                    if (videoEndedAt != Long.MAX_VALUE) return
-                    val surface = Surface(st)
-                    try {
-                        player = MediaPlayer().apply {
-                            assets.openFd("intro.mp4").use { setDataSource(it.fileDescriptor, it.startOffset, it.length) }
-                            setSurface(surface)
-                            setOnPreparedListener { val silent=getSharedPreferences("settings",0).getBoolean("muted",false);it.setVolume(if(silent)0f else 1f,if(silent)0f else 1f);if (active) it.start() }
-                            setOnCompletionListener { finishVideo() }
-                            setOnErrorListener { _, _, _ -> finishVideo(); true }
-                            prepareAsync()
-                        }
-                    } catch (_: Exception) { finishVideo() }
-                    finally { surface.release() }
-                }
-                override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {}
-                override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
-                override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
-                    if (videoEndedAt == Long.MAX_VALUE) finishVideo()
-                    return true
-                }
-            }
-        }
+        // Intro is now played on the third lobby monitor, not over the game.
+        introFinished=true
         dronePlace=action("Поставить дрон","build") { nativeCommand(41) }.apply { visibility=View.GONE }
         overlay.addView(dronePlace,FrameLayout.LayoutParams(dp(90),dp(70),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin=dp(10) })
         fpvLayer=FrameLayout(this).apply { visibility=View.GONE;isMotionEventSplittingEnabled=true }

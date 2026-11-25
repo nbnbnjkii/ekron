@@ -26,6 +26,7 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
     private val inverses=arrayOfNulls<Matrix>(4)
     private var dirty=true
     private data class P(val x:Float,val y:Float,val z:Float)
+    fun setMuted(value:Boolean){muted=value;intro?.setMuted(value);dirty=true}
     fun message(text:String){notice=text;dirty=true;invalidate()}
     fun refresh(){dirty=true;last=0;invalidate()}
     private fun project(p:P):PointF?{

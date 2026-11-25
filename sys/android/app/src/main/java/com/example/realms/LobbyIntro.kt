@@ -3,6 +3,7 @@ package com.example.realms
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
+import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
 import java.util.concurrent.Executors
@@ -11,7 +12,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** One bounded decoder worker, one pending UI frame, never decode on the UI thread. */
 class LobbyIntro(context:Context, private val frame:(Bitmap)->Unit, private val failed:()->Unit) {
+    private val audio=MediaPlayer()
+    @Volatile private var audioReady=false
     @Volatile var playing=true
+        set(value){field=value;if(audioReady)runCatching { if(value)audio.start() else audio.pause() }}
+    fun setMuted(muted:Boolean){runCatching { audio.setVolume(if(muted)0f else 1f,if(muted)0f else 1f) }}
     private val closed=AtomicBoolean(false)
     private val pending=AtomicBoolean(false)
     private val handler=Handler(Looper.getMainLooper())
@@ -21,6 +26,14 @@ class LobbyIntro(context:Context, private val frame:(Bitmap)->Unit, private val 
     private var position=0L
     private var duration=1L
     init {
+        runCatching {
+            context.assets.openFd("intro.mp4").use { audio.setDataSource(it.fileDescriptor,it.startOffset,it.length) }
+            audio.isLooping=true
+            setMuted(context.getSharedPreferences("settings",0).getBoolean("muted",false))
+            audio.setOnPreparedListener { if(!closed.get()){audioReady=true;if(playing)it.start()} }
+            audio.setOnErrorListener { _,_,_->true }
+            audio.prepareAsync()
+        }
         worker.execute {
             try {
                 context.assets.openFd("intro.mp4").use { retriever.setDataSource(it.fileDescriptor,it.startOffset,it.length) }
@@ -34,13 +47,14 @@ class LobbyIntro(context:Context, private val frame:(Bitmap)->Unit, private val 
                 val image=retriever.getScaledFrameAtTime(position*1000,MediaMetadataRetriever.OPTION_CLOSEST,640,360)
                 position=(position+125)%duration
                 if(image==null){pending.set(false)}else handler.post {
-                    try { if(!closed.get())frame(image) }finally{image.recycle();pending.set(false)}
+                    try { if(!closed.get()){if(audioReady)runCatching { position=audio.currentPosition.toLong() };frame(image)} }finally{image.recycle();pending.set(false)}
                 }
             }catch(_:Exception){pending.set(false)}
         },0,125,TimeUnit.MILLISECONDS)
     }
     fun close(){
         if(!closed.compareAndSet(false,true))return
+        audioReady=false;runCatching { audio.release() }
         worker.execute { retriever.release() }
         worker.shutdown() // scheduled tasks are cancelled; running decode finishes before release
     }
