@@ -95,8 +95,17 @@ public:
      velocity=std::abs(velocity)<.5f?0:-velocity*.35f;
     };
     float nx=o.x+o.vx*step,nz=o.z+o.vz*step;
-    if(collides(nx,o.y,o.z))impact(true,nx,o.z);else o.x=nx;
-    if(collides(o.x,o.y,nz))impact(false,o.x,nz);else o.z=nz;
+    auto moveHorizontal=[&](bool axisX,float x,float z){
+     if(!collides(x,o.y,z)){o.x=x;o.z=z;return;}
+     bool supported=o.type==8&&std::any_of(o.wheels.begin(),o.wheels.end(),[](const WheelState&w){return w.grounded;});
+     // Low kerbs/rocks: lift only with wheel support and a collision-free
+     // raised chassis. Tall walls and low ceilings remain solid.
+     if(supported&&std::abs(o.tiltX)<.4f&&std::abs(o.tiltZ)<.4f&&!collides(x,o.y+.22f,z)){
+      o.x=x;o.z=z;o.y+=.22f;o.vy=std::max(0.f,o.vy);return;
+     }
+     impact(axisX,x,z);
+    };
+    moveHorizontal(true,nx,o.z);moveHorizontal(false,o.x,nz);
     const float airDrag=std::exp(-.015f*step),angularDrag=std::exp(-.1f*step);
     o.vx*=airDrag;o.vz*=airDrag;o.spinX*=angularDrag;o.spinZ*=angularDrag;
     auto suspension=stepSuspension(o,step,ground);

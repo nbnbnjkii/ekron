@@ -23,6 +23,18 @@ int main(){
  assert(!mesh.raycast({3,0.96f,0},{1,0,0},6,hit));  // old +X front is empty
  // Yaw 0 still yields the fast AABB path (no per-frame oriented rebuild).
  CollisionMesh aabb;addObjectCollision(aabb,flat);aabb.build();assert(aabb.size()==12);
+ // Discrete heading rounding must not swap an already continuously rotated chassis.
+ turned.rotation=1;auto roundedNose=objectCorner(turned,1,0,0);
+ assert(std::abs(roundedNose.z+4.025f/2)<.001f);
+ // A side wall 15 cm outside the real chassis must not block it at 90deg.
+ CollisionMesh side;side.addBox({1.1f,-1,-5},{1.2f,4,5});side.build();
+ auto bounds=World::bounds(turned);
+ assert(!objectOverlap(side,turned,{bounds.x,bounds.y,bounds.z}));
+ CollisionMesh touching;touching.addBox({.8f,-1,-5},{.9f,4,5});touching.build();
+ assert(objectOverlap(touching,turned,{bounds.x,bounds.y,bounds.z}));
+ World citySave;citySave.objects={{8,0,24,104},{12,0,500,-650}};
+ assert(citySave.save("/tmp/ekron-large-map-save.txt"));World restored;assert(restored.load("/tmp/ekron-large-map-save.txt"));
+ assert(restored.objects.size()==2&&restored.objects[0].z==104);std::remove("/tmp/ekron-large-map-save.txt");
  std::cout<<"Car yaw: corners, seat and oriented collision consistent OK\n";
  return 0;
 }

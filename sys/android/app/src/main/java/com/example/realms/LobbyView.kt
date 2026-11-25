@@ -15,7 +15,7 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
     private var introPaused=false
     private var introError=false
     private var notice=""
-    private var x=0f;private var z=0f;private var yaw=0f;private var pitch=0f
+    private var posX=0f;private var posZ=0f;private var yaw=0f;private var pitch=0f
     private var eye=1.7f;private var jump=0f;private var vertical=0f;private var crouch=false
     private var moveId=-1;private var lookId=-1
     private var right=0f;private var forward=0f;private var lastX=0f;private var lastY=0f
@@ -29,7 +29,7 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
     fun message(text:String){notice=text;dirty=true;invalidate()}
     fun refresh(){dirty=true;last=0;invalidate()}
     private fun project(p:P):PointF?{
-        val dx=p.x-x;val dz=p.z-z;val dy=p.y-eye
+        val dx=p.x-posX;val dz=p.z-posZ;val dy=p.y-eye
         val qx=cos(yaw)*dx-sin(yaw)*dz
         val qz=sin(yaw)*dx+cos(yaw)*dz
         val qy=cos(pitch)*dy+sin(pitch)*qz
@@ -67,8 +67,8 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
     }
     override fun onDraw(c:Canvas){
         val now=System.nanoTime();val dt=if(last==0L)0f else ((now-last)/1e9f).coerceIn(0f,.04f);last=now
-        val norm=max(1f,hypot(right,forward));x+=((cos(yaw)*right-sin(yaw)*forward)/norm)*2.7f*dt;z+=((-sin(yaw)*right-cos(yaw)*forward)/norm)*2.7f*dt
-        x=x.coerceIn(-7.4f,7.4f);z=z.coerceIn(-7.4f,7.4f)
+        val norm=max(1f,hypot(right,forward));posX+=((cos(yaw)*right-sin(yaw)*forward)/norm)*2.7f*dt;posZ+=((-sin(yaw)*right-cos(yaw)*forward)/norm)*2.7f*dt
+        posX=posX.coerceIn(-7.4f,7.4f);posZ=posZ.coerceIn(-7.4f,7.4f)
         vertical-=12f*dt;jump=max(0f,jump+vertical*dt);if(jump==0f)vertical=0f;eye=(if(crouch)1f else 1.7f)+jump
         if(dirty)rebuild();inverses.fill(null);c.drawColor(0xff18211e.toInt())
         // Tile-sized quads clip against the near plane without dropping a whole wall.
@@ -81,7 +81,7 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
             quad(c,listOf(wallPoint(a.toFloat(),h.toFloat()),wallPoint(a+1f,h.toFloat()),wallPoint(a+1f,h+1f),wallPoint(a.toFloat(),h+1f)),if(h==0)0xff414c35.toInt() else 0xff242e28.toInt())
         }
         // Far-to-near order, room geometry is behind every monitor.
-        val ids=(0..3).sortedByDescending { i->val p=when(i){0->P(0f,2.5f,-7.95f);1->P(7.95f,2.5f,0f);2->P(0f,2.5f,7.95f);else->P(-7.95f,2.5f,0f)};(p.x-x).pow(2)+(p.z-z).pow(2) }
+        val ids=(0..3).sortedByDescending { i->val p=when(i){0->P(0f,2.5f,-7.95f);1->P(7.95f,2.5f,0f);2->P(0f,2.5f,7.95f);else->P(-7.95f,2.5f,0f)};(p.x-posX).pow(2)+(p.z-posZ).pow(2) }
         for(i in ids){fun point(u:Float,y:Float)=when(i){0->P(u,y,-7.94f);1->P(7.94f,y,u);2->P(-u,y,7.94f);else->P(-7.94f,y,-u)}
             quad(c,listOf(point(-3.2f,3.9f),point(3.2f,3.9f),point(3.2f,.3f),point(-3.2f,.3f)),Color.BLACK,screens[i],i)
         }
@@ -130,6 +130,7 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
             invalidate()
         },{introError=true;dirty=true;invalidate()})
     }
+    override fun onVisibilityChanged(changedView:View,visibility:Int){super.onVisibilityChanged(changedView,visibility);intro?.playing=isShown&&!introPaused}
     override fun onWindowVisibilityChanged(visibility:Int){super.onWindowVisibilityChanged(visibility);intro?.playing=visibility==VISIBLE&&!introPaused}
     override fun onDetachedFromWindow(){intro?.close();intro=null;super.onDetachedFromWindow();last=0;right=0f;forward=0f;moveId=-1;lookId=-1}
 }

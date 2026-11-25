@@ -64,7 +64,7 @@ public:
         int type=std::clamp(o.type,0,kObjectTypeCount-1);
         auto p=dims[type];
         int material=type==9||type==13||type==15||type==17||type==22?Wood:type==10?Brick:type==11||type==14||type==16||type==19||type==20||type==21||type==23||type==25||type==26||type==27||type==28?Rust:type==0||type==1||type==12||type==18||type==24?Concrete:Plain;
-        return {o.x,o.y+p[1]/2,o.z,o.rotation%2?p[2]:p[0],p[1],o.rotation%2?p[0]:p[2],.5f,.43f,.32f,material};
+        return {o.x,o.y+p[1]/2,o.z,o.type!=8&&o.rotation%2?p[2]:p[0],p[1],o.type!=8&&o.rotation%2?p[0]:p[2],.5f,.43f,.32f,material};
     }
     static float mass(const Object&o) {
         if(o.type==8)return 1500.f;
@@ -125,7 +125,7 @@ public:
     }
     Object preview() const { return {selected,rotation,std::round((x-std::sin(yaw)*4)*2)/2,std::round((z-std::cos(yaw)*4)*2)/2}; }
     bool canPlace(const Object &o) const {
-        if(o.type<0||o.type>=kObjectTypeCount||o.rotation<0||o.rotation>=4||!std::isfinite(o.x)||!std::isfinite(o.z)||!std::isfinite(o.y)||std::abs(o.y)>200||std::abs(o.x)>62||std::abs(o.z)>62) return false;
+        if(o.type<0||o.type>=kObjectTypeCount||o.rotation<0||o.rotation>=4||!std::isfinite(o.x)||!std::isfinite(o.z)||!std::isfinite(o.y)||std::abs(o.y)>200||std::abs(o.x)>8192||std::abs(o.z)>8192) return false;
         auto b=bounds(o);
         return !blocked(b)&&!overlap(b,{x,0,z,.7f,2,.7f,0,0,0});
     }
@@ -169,7 +169,7 @@ public:
         std::ifstream f(path);std::string magic;int count;
         if(!(f>>magic>>count)||(magic!="EKRON_SANDBOX_1"&&magic!="EKRON_SANDBOX_2"&&magic!="EKRON_SANDBOX_3"&&magic!="EKRON_SANDBOX_4"&&magic!="EKRON_SANDBOX_5"&&magic!="EKRON_SANDBOX_6")||count<0||count>limit)return false;
         std::vector<Object> incoming;
-        for(int i=0;i<count;i++){Object o{};if(!(f>>o.type>>o.rotation>>o.x>>o.z)||(magic!="EKRON_SANDBOX_1"&&!(f>>o.y))||((magic=="EKRON_SANDBOX_3"||magic=="EKRON_SANDBOX_4"||magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.anchored))||((magic=="EKRON_SANDBOX_4"||magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.surface))||((magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.frozen))||(magic=="EKRON_SANDBOX_6"&&(!(f>>o.tiltX>>o.tiltZ)||!std::isfinite(o.tiltX)||!std::isfinite(o.tiltZ)))||o.surface < -1||o.surface>6||o.type<0||o.type>=kObjectTypeCount||o.rotation<0||o.rotation>=4||!std::isfinite(o.x)||!std::isfinite(o.z)||!std::isfinite(o.y)||std::abs(o.y)>200||std::abs(o.x)>62||std::abs(o.z)>62)return false;if(o.type==8)o.yaw=o.rotation*1.57079632679f;incoming.push_back(o);}
+        for(int i=0;i<count;i++){Object o{};if(!(f>>o.type>>o.rotation>>o.x>>o.z)||(magic!="EKRON_SANDBOX_1"&&!(f>>o.y))||((magic=="EKRON_SANDBOX_3"||magic=="EKRON_SANDBOX_4"||magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.anchored))||((magic=="EKRON_SANDBOX_4"||magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.surface))||((magic=="EKRON_SANDBOX_5"||magic=="EKRON_SANDBOX_6")&&!(f>>o.frozen))||(magic=="EKRON_SANDBOX_6"&&(!(f>>o.tiltX>>o.tiltZ)||!std::isfinite(o.tiltX)||!std::isfinite(o.tiltZ)))||o.surface < -1||o.surface>6||o.type<0||o.type>=kObjectTypeCount||o.rotation<0||o.rotation>=4||!std::isfinite(o.x)||!std::isfinite(o.z)||!std::isfinite(o.y)||std::abs(o.y)>200||std::abs(o.x)>8192||std::abs(o.z)>8192)return false;if(o.type==8)o.yaw=o.rotation*1.57079632679f;incoming.push_back(o);}
         objects=std::move(incoming);return true;
     }
 private:

@@ -75,6 +75,7 @@ class MainActivity : GameActivity() {
     fun setLobbyMuted(muted:Boolean){getSharedPreferences("settings",0).edit().putBoolean("muted",muted).apply();player?.setVolume(if(muted)0f else 1f,if(muted)0f else 1f)}
     private fun showLobby(){
         if(lobby!=null)return
+        nativeJetpackThrust(false)
         setPaused(true)
         fun leaveLobby(){
             lobby?.let { (it.parent as? ViewGroup)?.removeView(it) };lobby=null
@@ -461,7 +462,7 @@ class MainActivity : GameActivity() {
                         player = MediaPlayer().apply {
                             assets.openFd("intro.mp4").use { setDataSource(it.fileDescriptor, it.startOffset, it.length) }
                             setSurface(surface)
-                            setOnPreparedListener { if (active) it.start() }
+                            setOnPreparedListener { val silent=getSharedPreferences("settings",0).getBoolean("muted",false);it.setVolume(if(silent)0f else 1f,if(silent)0f else 1f);if (active) it.start() }
                             setOnCompletionListener { finishVideo() }
                             setOnErrorListener { _, _, _ -> finishVideo(); true }
                             prepareAsync()
