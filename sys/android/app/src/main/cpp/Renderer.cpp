@@ -354,7 +354,7 @@ void Renderer::handleInput(){
   }
   if(command>=60&&command<=62){
    if(seatedCar_<0&&!drone_.piloting()){
-    if(command==60&&jetpack_.take()){tools_.select(world_,sandbox::HandTool::HAND_EMPTY);building_=false;drone_.mode=sandbox::FpvDrone::Absent;}
+    if(command==60&&jetpack_.take()){tools_.select(world_,sandbox::HandTool::HAND_EMPTY);building_=false;if(drone_.mode==sandbox::FpvDrone::InHands)drone_.mode=sandbox::FpvDrone::Absent;}
     if(command==61)jetpack_.wear();
     if(command==62)jetpack_.remove();
    }
