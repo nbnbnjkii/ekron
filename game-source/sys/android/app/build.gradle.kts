@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.realms"
         minSdk = 30
         targetSdk = 34
-        versionCode = 50
-        versionName = "0.50-military-city"
+        versionCode = 53
+        versionName = "0.53-spawn-catalog-fix"
         externalNativeBuild {
             cmake { cppFlags += "-std=c++17" }
         }

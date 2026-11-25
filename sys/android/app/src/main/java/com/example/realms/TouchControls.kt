@@ -87,6 +87,7 @@ class HudButton(context: Context, var caption: String, var symbol: String) : Vie
             "freeze" -> { for(i in 0..5){val a=i*Math.PI/3;val dx=kotlin.math.cos(a).toFloat();val dy=kotlin.math.sin(a).toFloat();line(50f,42f,50+dx*25,42+dy*25);val x=50+dx*16;val y=42+dy*16;line(x,y,x-dx*6-dy*6,y-dy*6+dx*6);line(x,y,x-dx*6+dy*6,y-dy*6-dx*6)} }
             "home" -> { line(24f,45f,50f,22f);line(50f,22f,76f,45f);line(31f,41f,31f,71f);line(31f,71f,69f,71f);line(69f,71f,69f,41f);line(45f,71f,45f,53f);line(45f,53f,56f,53f);line(56f,53f,56f,71f) }
             "switch" -> { line(25f,34f,75f,34f);line(75f,34f,62f,21f);line(75f,34f,62f,47f);line(75f,65f,25f,65f);line(25f,65f,38f,52f);line(25f,65f,38f,78f) }
+            "eye" -> { canvas.drawArc(RectF(24f,34f,76f,66f),0f,360f,false,paint);line(31f,42f,25f,37f);line(69f,42f,75f,37f);paint.style=Paint.Style.FILL;canvas.drawCircle(50f,50f,8f,paint);paint.style=Paint.Style.STROKE }
             "remove" -> { line(32f,32f,68f,68f);line(68f,32f,32f,68f) }
             "jump" -> { paint.style=Paint.Style.FILL; val path=Path();path.moveTo(50f,16f);path.lineTo(28f,42f);path.lineTo(42f,42f);path.lineTo(42f,68f);path.lineTo(58f,68f);path.lineTo(58f,42f);path.lineTo(72f,42f);path.close();canvas.drawPath(path,paint) }
             "crouch", "prone" -> {

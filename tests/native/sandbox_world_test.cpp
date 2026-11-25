@@ -11,7 +11,7 @@ int main() {
     assert(!world.place()); // No intersecting duplicate placement.
     auto bounds=sandbox::World::bounds({0,1,0,0});
     assert(bounds.w==.25f && bounds.d==3.f);
-    assert(!world.canPlace({13,0,0,0}));
+    assert(!world.canPlace({sandbox::kObjectTypeCount,0,0,0}));
     assert(!world.canPlace({0,0,std::numeric_limits<float>::infinity(),0}));
     const std::string path="/tmp/ekron-native-test-save.txt";
     assert(world.save(path));

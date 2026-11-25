@@ -26,9 +26,12 @@ bool GltfRenderer::load(AAssetManager *assets,const std::string&path,std::string
 bool GltfRenderer::uploadStep(std::string &log){
     if(!uploading_)return ready();
     glActiveTexture(GL_TEXTURE1);glPixelStorei(GL_UNPACK_ALIGNMENT,1);
-    // One per material preserves distinct glTF sampler wrapping modes.
+    // Share identical image/sampler storage, while retaining material draw state.
     if(nextMaterial_<scene_.materials.size()){
-        const auto&material=scene_.materials[nextMaterial_++];
+        const size_t index=nextMaterial_++;
+        const auto&material=scene_.materials[index];
+        const size_t owner=sharedTextureOwner(scene_.materials,index);
+        if(owner<index){textures_.push_back(textures_.at(owner));}else{
         GLuint texture=0;glGenTextures(1,&texture);textures_.push_back(texture);glBindTexture(GL_TEXTURE_2D,texture);
         const unsigned char white[4]={255,255,255,255};const Image *image=nullptr;
         if(material.image>=0&&size_t(material.image)<scene_.images.size())image=&scene_.images[material.image];
@@ -36,10 +39,13 @@ bool GltfRenderer::uploadStep(std::string &log){
         glTexImage2D(GL_TEXTURE_2D,0,GL_SRGB8_ALPHA8,valid?image->width:1,valid?image->height:1,0,GL_RGBA,GL_UNSIGNED_BYTE,valid?image->rgba.data():white);
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,wrap(material.wrapS));glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,wrap(material.wrapT));
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);glGenerateMipmap(GL_TEXTURE_2D);
+        }
     }else if(nextBatch_<scene_.batches.size()){
         const auto&batch=scene_.batches[nextBatch_++];
         if(batch.vertices.empty())return false;Mesh mesh;mesh.count=static_cast<GLsizei>(batch.vertices.size());mesh.material=batch.material;
         for(const auto&v:batch.vertices){mesh.x+=v.x/mesh.count;mesh.z+=v.z/mesh.count;}
+        mesh.rotor=batch.rotor;
+        if(mesh.rotor){std::array<float,3> lo{1e9f,1e9f,1e9f},hi{-1e9f,-1e9f,-1e9f};for(const auto&v:batch.vertices){std::array<float,3> p{v.x,v.y,v.z};for(int k=0;k<3;k++){lo[k]=std::min(lo[k],p[k]);hi[k]=std::max(hi[k],p[k]);}}for(int k=0;k<3;k++)mesh.pivot[k]=(lo[k]+hi[k])*.5f;}
         glGenVertexArrays(1,&mesh.vao);glGenBuffers(1,&mesh.vbo);glBindVertexArray(mesh.vao);glBindBuffer(GL_ARRAY_BUFFER,mesh.vbo);
         glBufferData(GL_ARRAY_BUFFER,batch.vertices.size()*sizeof(Vertex),batch.vertices.data(),GL_STATIC_DRAW);
         for(GLuint attr:{0u,1u,2u,3u})glEnableVertexAttribArray(attr);
@@ -58,7 +64,7 @@ bool GltfRenderer::uploadStep(std::string &log){
     for(auto&batch:scene_.batches)std::vector<Vertex>().swap(batch.vertices);
     return ready();
 }
-void GltfRenderer::draw(GLuint program,float eyeX,float eyeZ,bool hologram){
+void GltfRenderer::draw(GLuint program,float eyeX,float eyeZ,bool hologram,float rotorAngle){
     if(!ready())return;
     glUniform1i(glGetUniformLocation(program,"modelPass"),1);glUniform1i(glGetUniformLocation(program,"modelAlbedo"),1);
     glActiveTexture(GL_TEXTURE1);glVertexAttrib3f(1,1,1,1);glVertexAttrib1f(4,4);
@@ -66,6 +72,8 @@ void GltfRenderer::draw(GLuint program,float eyeX,float eyeZ,bool hologram){
     auto blended=[&](const Mesh&m){return m.material>=0&&size_t(m.material)<scene_.materials.size()&&scene_.materials[m.material].alphaMode==2;};
     std::stable_sort(order.begin(),order.end(),[&](size_t a,size_t b){const auto&ma=meshes_[a],&mb=meshes_[b];if(blended(ma)!=blended(mb))return !blended(ma);return blended(ma)&&std::hypot(ma.x-eyeX,ma.z-eyeZ)>std::hypot(mb.x-eyeX,mb.z-eyeZ);});
     for(size_t i:order){const auto&mesh=meshes_[i];Material fallback;const auto &material=mesh.material>=0&&size_t(mesh.material)<scene_.materials.size()?scene_.materials[mesh.material]:fallback;
+        glUniform1f(glGetUniformLocation(program,"rotorAngle"),mesh.rotor?(mesh.pivot[0]*mesh.pivot[2]>0?-rotorAngle:rotorAngle):0);
+        glUniform3fv(glGetUniformLocation(program,"rotorPivot"),1,mesh.pivot.data());
         glUniform1f(glGetUniformLocation(program,"modelRoughness"),material.roughness);
         glUniform4fv(glGetUniformLocation(program,"baseColorFactor"),1,material.color.data());glUniform1i(glGetUniformLocation(program,"modelTextured"),material.image>=0&&mesh.material>=0&&size_t(mesh.material)<textures_.size());
         glUniform1i(glGetUniformLocation(program,"alphaMode"),material.alphaMode);glUniform1f(glGetUniformLocation(program,"alphaCutoff"),material.cutoff);
@@ -76,5 +84,5 @@ void GltfRenderer::draw(GLuint program,float eyeX,float eyeZ,bool hologram){
     }
     glDisable(GL_BLEND);glDepthMask(GL_TRUE);glActiveTexture(GL_TEXTURE0);glUniform1i(glGetUniformLocation(program,"modelPass"),0);
 }
-void GltfRenderer::release(){for(auto&m:meshes_){if(m.vbo)glDeleteBuffers(1,&m.vbo);if(m.vao)glDeleteVertexArrays(1,&m.vao);}meshes_.clear();if(!textures_.empty())glDeleteTextures(static_cast<GLsizei>(textures_.size()),textures_.data());textures_.clear();scene_=Scene{};uploading_=false;}
+void GltfRenderer::release(){for(auto&m:meshes_){if(m.vbo)glDeleteBuffers(1,&m.vbo);if(m.vao)glDeleteVertexArrays(1,&m.vao);}meshes_.clear();if(!textures_.empty()){auto owned=textures_;std::sort(owned.begin(),owned.end());owned.erase(std::unique(owned.begin(),owned.end()),owned.end());glDeleteTextures(static_cast<GLsizei>(owned.size()),owned.data());}textures_.clear();scene_=Scene{};uploading_=false;}
 }

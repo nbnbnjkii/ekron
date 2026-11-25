@@ -24,7 +24,7 @@ class ToolWheelSelectionTest {
         val furniture=BuildCatalog.indicesForCategory(1)
         assertEquals(BuildCatalog.entries.indices.toSet(), (building+furniture).toSet())
         assertTrue(building.intersect(furniture.toSet()).isEmpty())
-        assertEquals(setOf(4,5,6,7), furniture.map { BuildCatalog.entries[it].nativeType }.toSet())
+        assertEquals(setOf(4,5,6,7,13,18,22,25,28), furniture.map { BuildCatalog.entries[it].nativeType }.toSet())
         assertTrue(BuildCatalog.indicesForCategory(2).isEmpty())
         assertTrue(BuildCatalog.indicesForCategory(3).isEmpty())
     }

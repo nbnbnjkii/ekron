@@ -30,6 +30,11 @@ int main(){
  assert(last==100&&updates>=6);
  assert(scene.batches.size()>50&&scene.batches.size()<200);
  assert(scene.materials.size()>100&&scene.images.size()>=4);
+ size_t owners=0;for(size_t i=0;i<scene.materials.size();i++){auto owner=city::sharedTextureOwner(scene.materials,i);assert(owner<=i);if(owner==i)owners++;}
+ assert(owners<20); // Military materials reuse their source textures.
+ {std::vector<city::Material> m(3);m[0].image=m[1].image=m[2].image=0;m[1].color[0]=.2f;m[2].wrapS=33071;
+ assert(city::sharedTextureOwner(m,1)==0);assert(city::sharedTextureOwner(m,2)==2);}
+ std::cout<<"Unique GPU texture storage: "<<owners<<" / "<<scene.materials.size()<<" materials\n";
  assert(scene.maximum[0]-scene.minimum[0]>3999);
  size_t triangles=0;bool colored=false;
  for(const auto&batch:scene.batches){triangles+=batch.vertices.size()/3;for(const auto&v:batch.vertices)if(v.r!=1||v.g!=1||v.b!=1)colored=true;}

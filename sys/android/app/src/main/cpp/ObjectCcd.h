@@ -4,7 +4,7 @@
 #include "RigidContactMath.h"
 namespace sandbox {
 inline physics::Vec3 objectCorner(const Object&o,float x,float y,float z){
- auto b=World::bounds(o);x*=b.w/2;y*=b.h/2;z*=b.d/2;
+ auto b=World::bounds(o);x*=b.w/2;y*=b.h/2;z*=b.d/2;float cy=std::cos(o.yaw),sy=std::sin(o.yaw);float wx=cy*x+sy*z,wz=-sy*x+cy*z;x=wx;z=wz;
  float py=std::cos(o.tiltX)*y-std::sin(o.tiltX)*z,pz=std::sin(o.tiltX)*y+std::cos(o.tiltX)*z;
  return {o.x+std::cos(o.tiltZ)*x-std::sin(o.tiltZ)*py,b.y+std::sin(o.tiltZ)*x+std::cos(o.tiltZ)*py,o.z+pz};
 }

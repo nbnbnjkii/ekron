@@ -15,12 +15,16 @@ class ObjectDynamics {
  BodyBroadphase broadphase_;
  BodyBroadphase pairBroadphase_;
 public:
+ std::vector<physics::Vec3> barrelImpacts;
  PairSolverStats pairStats{};
  size_t neighbourMeshBuilds=0;
  bool update(World&w,const physics::CollisionMesh&mesh,float dt,int held,const std::array<float,3>&lo,const std::array<float,3>&hi,int*heldIndex=nullptr,int*seatIndex=nullptr){
+  barrelImpacts.clear();
   accumulator_+=std::clamp(dt,0.f,.05f);bool changed=false;constexpr float step=1.f/120;
   while(accumulator_>=step){accumulator_-=step;
-   for(auto&o:w.objects)if(!std::isfinite(o.x)||!std::isfinite(o.y)||!std::isfinite(o.z))o.destroyed=true;
+   // Validate all sort keys and geometry inputs BEFORE physicalOrder/BVH.
+   // NaN angles break strict ordering; non-finite velocities poison sweeps.
+   for(auto&o:w.objects)sanitizeBodyState(o);
    const auto beforeBodies=w.objects;
    const auto order=physicalOrder(w);
    broadphase_.build(w,held,step);
@@ -155,7 +159,7 @@ public:
      float ix=(b.h*b.h+b.d*b.d)/12,iz=(b.w*b.w+b.h*b.h)/12;
      float incoming=tx*o.spinX+tz*o.spinZ,denom=tx*tx/ix+tz*tz/iz;
      if(incoming<0&&denom>1e-7f){float impulse=-incoming/denom;o.spinX+=tx*impulse/ix;o.spinZ+=tz*impulse/iz;}
-     o.y=support+.003f;o.vy=std::abs(o.vy)>2?-o.vy*contactMaterial(o).restitution:0;
+     o.vy=std::abs(o.vy)>2?-o.vy*contactMaterial(o).restitution:0;
      // Rest on the current rotated body, not on an upright replacement.
      o.y=support+verticalRadius-half.y+.005f;
      // Contact is dissipative. Terrain gradients must not continuously inject
@@ -188,13 +192,20 @@ public:
       o.y=surface+radius()-half.y+.02f;o.vx=o.vy=o.vz=o.spinX=o.spinZ=0;o.floorRecoveryUsed=true;o.restTime=0;
      }
     }
-    if(recoverCityContact(o,mesh)>.002f){o.awake=true;o.restTime=0;}
+    // Only a real deep embedding re-wakes a settling body. Sub-centimetre seam
+    // corrections may reposition the frame but must not keep resetting rest,
+    // which is what made thrown props hover/bounce instead of lying flat.
+    if(recoverCityContact(o,mesh)>.01f){o.awake=true;o.restTime=0;}
     solveCityContactVelocities(o,mesh);
     // Judge rest only after every normal/friction impulse has been solved.
     // Intermediate velocities before the manifold solve are not physical rest
-    // velocities (in particular at a sloped triangle seam).
+    // velocities (in particular at a sloped triangle seam). A body balancing on
+    // a corner/edge has balanced=false but is still genuinely at rest once its
+    // motion is frozen; otherwise it vibrates forever instead of sleeping.
     if(o.type!=8||suspension.contacts==0){
-     if(restingContact&&(balanced||cityWall)&&std::hypot(o.vx,o.vz)<.025f&&std::abs(o.vy)<.025f&&std::hypot(o.spinX,o.spinZ)<.03f){
+     float linearSpeed=std::hypot(o.vx,o.vz),angularSpeed=std::hypot(o.spinX,o.spinZ);
+     bool frozenInPlace=linearSpeed<.015f&&std::abs(o.vy)<.015f&&angularSpeed<.008f;
+     if(restingContact&&(balanced||cityWall||frozenInPlace)&&linearSpeed<.025f&&std::abs(o.vy)<.025f&&angularSpeed<.03f){
       o.restTime+=step;if(o.restTime>.35f){o.vx=o.vy=o.vz=o.spinX=o.spinZ=0;o.awake=false;}
      }else o.restTime=0;
     }
@@ -204,6 +215,11 @@ public:
    neighbourMeshBuilds=broadphase_.meshBuilds;
    pairStats=solveBodyPairs(w,mesh,pairBroadphase_,beforeBodies,held,step);
    if(pairStats.contacts||pairStats.sweeps)changed=true;
+   for(auto&o:w.objects)sanitizeBodyState(o);
+   for(size_t i=0;i<w.objects.size();i++){auto&o=w.objects[i];if(o.type!=29||o.destroyed||int(i)==held)continue;
+    const auto&old=beforeBodies[i];float impact=physics::length({o.vx-old.vx,o.vy-old.vy,o.vz-old.vz});
+    if(impact>=5.5f){auto b=World::bounds(o);barrelImpacts.push_back({b.x,b.y,b.z});o.destroyed=true;changed=true;}
+   }
   }
   // Reverse erasure preserves surviving state and repairs live grab/seat indices.
   for(size_t i=w.objects.size();i-->0;)if(w.objects[i].destroyed){

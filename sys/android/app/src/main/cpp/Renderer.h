@@ -15,6 +15,8 @@
 #include "TextureLoader.h"
 #include "GltfRenderer.h"
 #include "MilitaryEffects.h"
+#include "PlayerView.h"
+#include "BlastEffects.h"
 struct android_app;
 class Renderer {
 public:
@@ -29,8 +31,17 @@ private:
     EGLSurface surface_=EGL_NO_SURFACE;
     EGLContext context_=EGL_NO_CONTEXT;
     GLuint program_=0,skyProgram_=0,buffer_=0,vao_=0;
+    size_t dynamicCapacity_=0;
+    void uploadDynamic(const std::vector<sandbox::MeshVertex>&vertices);
     TextureLoader textures_;
     military::Effects militaryEffects_;
+    sandbox::PlayerView playerView_;
+    sandbox::BlastEffects blasts_;
+    bool crashSpectating_=false;
+    float crashSpectateTime_=0;
+    physics::Vec3 crashSpectateFrom_{},crashSpectateTarget_{};
+    bool carChase_=false;
+    float rotorPhase_=0;
     city::GltfRenderer city_;
     city::GltfRenderer car_;
     city::GltfRenderer remote_;
