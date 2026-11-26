@@ -16,6 +16,17 @@ class ControlEditorView(context:Context, root:ViewGroup, private val profile:Str
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG)
     private var selected:Target?=null
     private var lastX=0f;private var lastY=0f
+    private val sourceWidth=root.width.toFloat().coerceAtLeast(1f)
+    private val sourceHeight=root.height.toFloat().coerceAtLeast(1f)
+    private val density=resources.displayMetrics.density
+    private fun dp(v:Float)=v*density
+    private val header=dp(56f)
+    private val footer=dp(128f)
+    private var ratio=1f;private var originX=0f;private var originY=0f
+    private val decrease=Button(context)
+    private val increase=Button(context)
+    private val selection=Spinner(context)
+    private var dragId=-1
     init {
         val origin=IntArray(2);root.getLocationOnScreen(origin)
         fun scan(group:ViewGroup,path:String,inDrone:Boolean=false){for(i in 0 until group.childCount){val v=group.getChildAt(i);val key="$path/$i"
