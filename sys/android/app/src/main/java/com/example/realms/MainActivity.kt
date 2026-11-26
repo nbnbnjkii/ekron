@@ -59,6 +59,15 @@ class MainActivity : GameActivity() {
     private var paused = false
     private var lobby: LobbyView?=null
     private var enteredLobby=false
+    private external fun nativeGraphics(quality:Int,fps:Int,width:Int,height:Int)
+    fun setGraphics(quality:Int?,fps:Int?){
+        val p=getSharedPreferences("graphics",0)
+        val q=(quality?:p.getInt("quality",1)).coerceIn(0,2)
+        val f=if((fps?:p.getInt("fps",60))==30)30 else 60
+        p.edit().putInt("quality",q).putInt("fps",f).apply()
+        val m=resources.displayMetrics
+        nativeGraphics(q,f,if(::hud.isInitialized&&hud.width>0)hud.width else m.widthPixels,if(::hud.isInitialized&&hud.height>0)hud.height else m.heightPixels)
+    }
     private external fun nativeLobbyVisible(visible:Boolean)
     private external fun nativeRequestSave(): Int
     private external fun nativeSaveResult(): Int
@@ -94,6 +103,7 @@ class MainActivity : GameActivity() {
             setPaused(false)
         }
         val room=LobbyView(this,{ leaveLobby() },{ leaveLobby();nativeCommand(63) },{ nativeRequestSave();lobby?.message("Сохранение…") })
+        room.gameReady=worldReady
         room.canContinue=getSharedPreferences("session",0).getBoolean("started",false)||java.io.File(filesDir,"military-city-20240229-v1.txt").exists()
         lobby=room;hud.visibility=View.INVISIBLE
         addContentView(room,ViewGroup.LayoutParams(-1,-1));room.syncPlayerControls(hud,joystick,jumpControl,crouchControl);room.refresh()
@@ -195,14 +205,15 @@ class MainActivity : GameActivity() {
                 altitude.visibility = if (flying) View.VISIBLE else View.GONE
                 val stage = state[4].toInt()
                 worldReady = stage == 6 && introFinished
-                if(worldReady&&!enteredLobby){enteredLobby=true;handler.post { showLobby() }}
+                lobby?.gameReady=worldReady
+                if(stage<0)lobby?.message("Ошибка загрузки карты. Перезапустите игру.")
                 if(lobby!=null){
                     when(nativeSaveResult()){2->lobby?.message("Игра сохранена");-1->lobby?.message("Не удалось сохранить игру")}
                 }
                 val unlocked = worldReady && active
                 nativeReady(unlocked && !paused)
                 weapon.running=unlocked && !paused
-                loading.visibility = if (unlocked) View.GONE else View.VISIBLE
+                loading.visibility = View.GONE
                 spinner.visibility = if (stage < 0) View.GONE else View.VISIBLE
                 if(state.size>=9)spinner.progress=state[8].toInt().coerceIn(0,100)
                 loadingText.text = when (stage) {
@@ -475,6 +486,8 @@ class MainActivity : GameActivity() {
         fpvLayer.addView(action("","remove") { fpvControls.reset();nativeCommand(42) }.apply { contentDescription="Выйти из FPV" },FrameLayout.LayoutParams(dp(60),dp(60),Gravity.TOP or Gravity.END).apply { topMargin=dp(8);rightMargin=dp(8) })
         overlay.addView(fpvLayer,FrameLayout.LayoutParams(-1,-1))
         addContentView(overlay, ViewGroup.LayoutParams(-1, -1))
+        loading.visibility=View.GONE
+        overlay.post { setGraphics(null,null);if(!enteredLobby){enteredLobby=true;showLobby()} }
         hideSystemUi()
         catalogExecutor.execute {
             for(index in BuildCatalog.entries.indices) {

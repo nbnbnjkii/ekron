@@ -1,4 +1,7 @@
 #include "Renderer.h"
+#include "GraphicsSettings.h"
+#include <thread>
+#include <android/native_window.h>
 #include "ObjectMesh.h"
 #include "CityGraffiti.h"
 #include "GravityBeam.h"
@@ -36,6 +39,7 @@ std::atomic<int> droneMode{0};
 std::atomic<int> thirdPerson{0},jetpackState{0};
 std::atomic<bool> jetpackThrust{false};
 std::atomic<bool> lobbyVisible{false};
+std::atomic<int> graphicsQuality{1},graphicsFps{60},displayWidth{0},displayHeight{0};
 std::atomic<int> manualSave{0};
 std::atomic<bool> manualSaveRequested{false};
 std::atomic<float> droneThrottle{0},droneYawInput{0},dronePitchInput{0},droneRollInput{0};
@@ -188,6 +192,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeDro
 extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLook(JNIEnv*,jobject,jfloat dx,jfloat dy){
  if(!gameplayReady||!std::isfinite(dx)||!std::isfinite(dy))return;
  std::lock_guard<std::mutex> lock(commandMutex);lookDx=std::clamp(lookDx+dx,-400.f,400.f);lookDy=std::clamp(lookDy+dy,-400.f,400.f);
+}
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeGraphics(JNIEnv*,jobject,jint quality,jint fps,jint width,jint height){
+ graphicsQuality=std::clamp(int(quality),0,2);graphicsFps=fps==30?30:60;
+ if(width>0&&height>0){displayWidth=width;displayHeight=height;}
 }
 extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLobbyVisible(JNIEnv*,jobject,jboolean visible){lobbyVisible=visible;}
 extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeRequestSave(JNIEnv*,jobject){manualSave=1;manualSaveRequested=true;return 1;}
@@ -467,6 +475,15 @@ void Renderer::handleInput(){
 }
 void Renderer::render(){
  if(!program_||surface_==EGL_NO_SURFACE)return;
+ sandbox::GraphicsSettings graphics{graphicsQuality.load(),graphicsFps.load()};
+ if(frameStart_!=std::chrono::steady_clock::time_point{})std::this_thread::sleep_until(frameStart_+std::chrono::nanoseconds(1000000000/graphics.frameRate()));
+ frameStart_=std::chrono::steady_clock::now();
+ if(displayWidth>0&&displayHeight>0){
+  int w=graphics.dimension(displayWidth.load()),h=graphics.dimension(displayHeight.load());
+  if(w!=appliedRenderWidth_||h!=appliedRenderHeight_){
+   if(ANativeWindow_setBuffersGeometry(app_->window,w,h,0)==0){appliedRenderWidth_=w;appliedRenderHeight_=h;}
+  }
+ }
  if(loadStage>=0&&loadStage<5)advanceLoading();
  // Keep EGL/vsync alive, but do not draw the entire military city behind an
  // opaque lobby/editor. Input/save handling still runs on the native loop.
