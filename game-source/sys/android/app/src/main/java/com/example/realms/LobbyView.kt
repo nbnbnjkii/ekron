@@ -4,10 +4,14 @@ import android.content.Context
 import android.graphics.*
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
+import android.view.Gravity
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import kotlin.math.*
 
 /** A separate bounded 3D room: the game session stays paused underneath it. */
-class LobbyView(context: Context, private val resumeGame: () -> Unit, private val newGame: () -> Unit, private val saveGame: () -> Unit) : View(context) {
+class LobbyView(context: Context, private val resumeGame: () -> Unit, private val newGame: () -> Unit, private val saveGame: () -> Unit) : FrameLayout(context) {
     var canContinue=false
     private var page=0
     private var muted=context.getSharedPreferences("settings",0).getBoolean("muted",false)
@@ -15,11 +19,44 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
     private var introPaused=false
     private var introError=false
     private var notice=""
-    private var posX=0f;private var posZ=0f;private var yaw=0f;private var pitch=0f
+    private var posX=0f;private var posZ=-3f;private var yaw=0f;private var pitch=0f
     private var eye=1.7f;private var jump=0f;private var vertical=0f;private var crouch=false
-    private var moveId=-1;private var lookId=-1
-    private var right=0f;private var forward=0f;private var lastX=0f;private var lastY=0f
-    private var downX=0f;private var downY=0f;private var dragged=false
+    private var right=0f;private var forward=0f
+    private val lookControl=LookView(context){dx,dy->yaw-=dx*.004f;pitch=(pitch-dy*.004f).coerceIn(-.9f,.9f)}
+    private val walkControl=StickView(context){r,f->right=r;forward=f}
+    private val jumpControl=HudButton(context,"Прыжок","jump")
+    private val crouchControl=HudButton(context,"Присесть","crouch")
+    init {
+        setWillNotDraw(false);isMotionEventSplittingEnabled=true
+        lookControl.onTap={sx,sy->click(sx,sy)}
+        addView(lookControl,LayoutParams(-1,-1))
+        val density=resources.displayMetrics.density
+        fun dp(n:Int)=(n*density).toInt()
+        val stick=(resources.configuration.screenHeightDp*.32f).toInt().coerceIn(120,184)
+        val size=(resources.configuration.screenHeightDp*.145f).toInt().coerceIn(60,64)
+        addView(walkControl,LayoutParams(dp(stick),dp(stick),Gravity.BOTTOM or Gravity.START).apply { leftMargin=dp(14);bottomMargin=dp(22) })
+        jumpControl.setOnClickListener { if(jump==0f&&!crouch)vertical=6.5f }
+        jumpControl.setOnTouchListener { v,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->{v.isPressed=true;v.performClick()};MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->v.isPressed=false};true }
+        crouchControl.setOnClickListener { crouch=!crouch;crouchControl.isSelected=crouch }
+        addView(jumpControl,LayoutParams(dp(size),dp(size),Gravity.BOTTOM or Gravity.END).apply { rightMargin=dp(8);bottomMargin=dp(8+size) })
+        addView(crouchControl,LayoutParams(dp(size),dp(size),Gravity.BOTTOM or Gravity.END).apply { rightMargin=dp(8);bottomMargin=dp(8) })
+    }
+    /** Use the very same saved player layout as the actual game HUD. */
+    fun syncPlayerControls(root:ViewGroup,walk:View,jump:View,crouch:View){
+        val prefs=context.getSharedPreferences("controls-player",0)
+        fun find(group:ViewGroup,target:View,path:String="",ox:Int=0,oy:Int=0):Triple<String,Int,Int>?{
+            for(i in 0 until group.childCount){val v=group.getChildAt(i);val key="$path/$i"
+                if(v===target)return Triple(key,ox+v.left,oy+v.top)
+                if(v is ViewGroup){val found=find(v,target,key,ox+v.left,oy+v.top);if(found!=null)return found}
+            };return null
+        }
+        for((source,dest) in listOf(walk to walkControl,jump to jumpControl,crouch to crouchControl)){
+            val info=find(root,source)?:continue;if(source.width<1||source.height<1)continue
+            dest.layoutParams=LayoutParams(source.width,source.height,Gravity.TOP or Gravity.START).apply { leftMargin=info.second;topMargin=info.third }
+            dest.translationX=prefs.getFloat("${info.first}.x",0f)*root.width;dest.translationY=prefs.getFloat("${info.first}.y",0f)*root.height
+            val scale=prefs.getFloat("${info.first}.s",1f);dest.scaleX=scale;dest.scaleY=scale
+        }
+    }
     private var last=0L
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val screens=Array(4){Bitmap.createBitmap(768,432,Bitmap.Config.ARGB_8888)}
@@ -63,14 +100,18 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
                 2 -> if(introError)listOf("Не удалось загрузить интро") else listOf("Коснитесь экрана: пауза / продолжить")
                 else -> listOf("В лобби нельзя строить","Левый круг: ходьба","Справа: прыжок / приседание","Коснитесь надписи на стене","Продолжить возвращает в ту же сессию")
             }
-            lines.forEachIndexed { n,text -> c.drawText(text.take(47),24f,120f+n*62f,paint) }
+            lines.forEachIndexed { n,text ->
+                val action=(i==0&&n in 1..3)||(i==1&&n in 0..3)
+                if(action){paint.color=0xff304f40.toInt();c.drawRoundRect(RectF(16f,85f+n*62,752f,140f+n*62),10f,10f,paint)}
+                paint.color=0xffbcebd0.toInt();c.drawText(text.take(47),24f,120f+n*62f,paint)
+            }
         };dirty=false
     }
     override fun onDraw(c:Canvas){
         val now=System.nanoTime();val dt=if(last==0L)0f else ((now-last)/1e9f).coerceIn(0f,.04f);last=now
         val norm=max(1f,hypot(right,forward));posX+=((cos(yaw)*right-sin(yaw)*forward)/norm)*2.7f*dt;posZ+=((-sin(yaw)*right-cos(yaw)*forward)/norm)*2.7f*dt
         posX=posX.coerceIn(-7.4f,7.4f);posZ=posZ.coerceIn(-7.4f,7.4f)
-        vertical-=12f*dt;jump=max(0f,jump+vertical*dt);if(jump==0f)vertical=0f;eye=(if(crouch)1f else 1.7f)+jump
+        vertical-=18f*dt;jump=max(0f,jump+vertical*dt);if(jump==0f)vertical=0f;eye=(if(crouch)1f else 1.7f)+jump
         if(dirty)rebuild();inverses.fill(null);c.drawColor(0xff18211e.toInt())
         // Tile-sized quads clip against the near plane without dropping a whole wall.
         for(a in -8..7)for(b in -8..7){
@@ -86,14 +127,12 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
         for(i in ids){fun point(u:Float,y:Float)=when(i){0->P(u,y,-7.94f);1->P(7.94f,y,u);2->P(-u,y,7.94f);else->P(-7.94f,y,-u)}
             quad(c,listOf(point(-3.2f,3.9f),point(3.2f,3.9f),point(3.2f,.3f),point(-3.2f,.3f)),Color.BLACK,screens[i],i)
         }
-        paint.typeface=Typeface.DEFAULT;paint.color=0x887ea58a.toInt();c.drawCircle(100f,height-110f,72f,paint)
-        paint.color=Color.WHITE;paint.textSize=23f;c.drawText("Ходьба",60f,height-105f,paint);c.drawText("Прыжок",width-145f,height-130f,paint);c.drawText("Сесть",width-135f,height-55f,paint)
-        c.drawText("ЛОББИ · проведите для обзора",24f,32f,paint)
         postInvalidateOnAnimation()
     }
     private fun click(sx:Float,sy:Float){
         for(i in 0..3){val inv=inverses[i]?:continue;val p=floatArrayOf(sx,sy);inv.mapPoints(p)
             if(p[0] !in 0f..768f || p[1] !in 0f..432f)continue
+            if(i!=2&&p[1] !in 85f..395f)return
             val row=((p[1]-85)/62).toInt()
             if(i==0){
                 if(page==0)when(row){1->if(canContinue)resumeGame() else {page=1;dirty=true};2->{page=1;dirty=true};3->if(canContinue)saveGame()}
@@ -105,23 +144,6 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
             return
         }
     }
-    override fun onTouchEvent(e:MotionEvent):Boolean{
-        val i=e.actionIndex;val id=e.getPointerId(i);val px=e.getX(i);val py=e.getY(i)
-        when(e.actionMasked){
-            MotionEvent.ACTION_DOWN,MotionEvent.ACTION_POINTER_DOWN -> {
-                if(px<200&&py>height-220){moveId=id;right=((px-100)/72).coerceIn(-1f,1f);forward=((height-110-py)/72).coerceIn(-1f,1f)}
-                else if(px>width-180&&py>height-190){if(py>height-90)crouch=!crouch else if(jump==0f&&!crouch)vertical=5f}
-                else if(lookId<0){lookId=id;lastX=px;lastY=py;downX=px;downY=py;dragged=false}
-            }
-            MotionEvent.ACTION_MOVE -> {
-                val m=e.findPointerIndex(moveId);if(m>=0){right=((e.getX(m)-100)/72).coerceIn(-1f,1f);forward=((height-110-e.getY(m))/72).coerceIn(-1f,1f)}
-                val l=e.findPointerIndex(lookId);if(l>=0){val a=e.getX(l);val b=e.getY(l);if(hypot(a-downX,b-downY)>12)dragged=true;yaw-=(a-lastX)*.004f;pitch=(pitch-(b-lastY)*.004f).coerceIn(-.9f,.9f);lastX=a;lastY=b}
-            }
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_POINTER_UP -> {if(id==moveId){moveId=-1;right=0f;forward=0f};if(id==lookId){if(!dragged)click(px,py);lookId=-1;performClick()}}
-            MotionEvent.ACTION_CANCEL -> {moveId=-1;lookId=-1;right=0f;forward=0f}
-        };return true
-    }
-    override fun performClick():Boolean{super.performClick();return true}
     override fun onAttachedToWindow(){
         super.onAttachedToWindow()
         intro=LobbyIntro(context,{ image ->
@@ -133,5 +155,5 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
     }
     override fun onVisibilityChanged(changedView:View,visibility:Int){super.onVisibilityChanged(changedView,visibility);intro?.playing=isShown&&!introPaused}
     override fun onWindowVisibilityChanged(visibility:Int){super.onWindowVisibilityChanged(visibility);intro?.playing=visibility==VISIBLE&&!introPaused}
-    override fun onDetachedFromWindow(){intro?.close();intro=null;super.onDetachedFromWindow();last=0;right=0f;forward=0f;moveId=-1;lookId=-1}
+    override fun onDetachedFromWindow(){intro?.close();intro=null;super.onDetachedFromWindow();last=0;walkControl.reset();lookControl.reset()}
 }

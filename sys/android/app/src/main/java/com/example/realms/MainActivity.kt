@@ -74,6 +74,7 @@ class MainActivity : GameActivity() {
         hud.layout(hud.left,hud.top,hud.right,hud.bottom)
         val editor=ControlEditorView(this,hud,profile){
             controlsEditor?.let { (it.parent as? ViewGroup)?.removeView(it) };controlsEditor=null
+            lobby?.syncPlayerControls(hud,joystick,jumpControl,crouchControl)
             lobby?.visibility=View.VISIBLE;lobby?.refresh()
             ControlEditorView.apply(hud,profile)
         }
@@ -95,7 +96,7 @@ class MainActivity : GameActivity() {
         val room=LobbyView(this,{ leaveLobby() },{ leaveLobby();nativeCommand(63) },{ nativeRequestSave();lobby?.message("Сохранение…") })
         room.canContinue=getSharedPreferences("session",0).getBoolean("started",false)||java.io.File(filesDir,"military-city-20240229-v1.txt").exists()
         lobby=room;hud.visibility=View.INVISIBLE
-        addContentView(room,ViewGroup.LayoutParams(-1,-1));room.refresh()
+        addContentView(room,ViewGroup.LayoutParams(-1,-1));room.syncPlayerControls(hud,joystick,jumpControl,crouchControl);room.refresh()
     }
     private var worldReady = false
     private var flyingNow = false
@@ -116,6 +117,7 @@ class MainActivity : GameActivity() {
     private lateinit var freezeControl: HudButton
     private lateinit var grabControl: HudButton
     private lateinit var rotateHeldControl: HudButton
+    private lateinit var jumpControl: HudButton
     private lateinit var crouchControl: HudButton
     private lateinit var proneControl: HudButton
     private lateinit var viewToggle: HudButton
@@ -350,6 +352,7 @@ class MainActivity : GameActivity() {
         overlay.addView(viewToggle, FrameLayout.LayoutParams(dp(60), dp(60), Gravity.TOP or Gravity.END).apply { topMargin=dp(126); rightMargin=dp(8) })
         val movement = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; gravity=Gravity.CENTER; isMotionEventSplittingEnabled=true }
         val jump = action("Прыжок", "jump") { nativeCommand(8) }
+        jumpControl=jump
         // Fire on press, not release. The joystick keeps its own pointer and axes untouched.
         jump.setOnTouchListener { v, event ->
             when(event.actionMasked) {

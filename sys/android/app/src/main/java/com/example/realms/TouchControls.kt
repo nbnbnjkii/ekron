@@ -104,21 +104,29 @@ class HudButton(context: Context, var caption: String, var symbol: String) : Vie
 /** Shares the SAME Android touch dispatcher as the stick. No hand-off to a second surface. */
 class LookView(context: Context, private val startFraction: Float = .42f, private val look: (Float, Float) -> Unit) : View(context) {
     private val drag = PointerDrag()
+    var onTap:((Float,Float)->Unit)?=null
+    private var downX=0f;private var downY=0f;private var moved=false;private var canLook=true
+    private val slop=android.view.ViewConfiguration.get(context).scaledTouchSlop
     init { contentDescription = "Обзор: проведите пальцем справа" }
     fun reset() { drag.reset() }
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when(event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                if(event.x < width * startFraction)return false
+                if(event.x < width * startFraction && onTap==null)return false
+                downX=event.x;downY=event.y;moved=false;canLook=event.x>=width*startFraction
                 drag.start(event.getPointerId(0),event.x,event.y)
                 parent.requestDisallowInterceptTouchEvent(true)
             }
             MotionEvent.ACTION_MOVE -> {
                 val i=event.findPointerIndex(drag.pointer)
-                if(i>=0)drag.move(event.getPointerId(i),event.getX(i),event.getY(i))?.let { look(it.first,it.second) }
+                if(i>=0){
+                    if(hypot(event.getX(i)-downX,event.getY(i)-downY)>slop)moved=true
+                    drag.move(event.getPointerId(i),event.getX(i),event.getY(i))?.let { if(canLook)look(it.first,it.second) }
+                }
             }
             MotionEvent.ACTION_POINTER_UP -> drag.end(event.getPointerId(event.actionIndex))
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> reset()
+            MotionEvent.ACTION_UP -> {if(!moved && event.getPointerId(event.actionIndex)==drag.pointer){onTap?.invoke(event.x,event.y);performClick()};reset()}
+            MotionEvent.ACTION_CANCEL -> reset()
         }
         return true
     }
