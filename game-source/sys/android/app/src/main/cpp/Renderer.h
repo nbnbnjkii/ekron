@@ -28,6 +28,8 @@ public:
     void resetInput();
 private:
     android_app *app_;
+    std::chrono::steady_clock::time_point frameStart_{};
+    int appliedRenderWidth_=0,appliedRenderHeight_=0;
     EGLDisplay display_=EGL_NO_DISPLAY;
     EGLSurface surface_=EGL_NO_SURFACE;
     EGLContext context_=EGL_NO_CONTEXT;
