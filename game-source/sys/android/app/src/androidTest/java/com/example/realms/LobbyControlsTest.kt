@@ -22,6 +22,7 @@ class LobbyControlsTest {
         instrumentation.runOnMainSync {
             val room=LobbyView(instrumentation.targetContext,{},{},{})
             val controls=children(room)
+            assertFalse("No fullscreen scrolling menu over the room",controls.any { it is android.widget.ScrollView })
             assertEquals(1,controls.count { it is StickView })
             assertEquals(1,controls.count { it is LookView })
             assertEquals(setOf("jump","crouch"),controls.filterIsInstance<HudButton>().map { it.symbol }.toSet())

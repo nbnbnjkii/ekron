@@ -226,7 +226,7 @@ extern "C" JNIEXPORT jfloatArray JNICALL Java_com_example_realms_LobbyView_nativ
  for(int corner=0;corner<4;corner++){float u=corner==1||corner==2?1:0,v=corner>=2?1:0;shown=query.project(sandbox::LobbyScene::screenPoint(2,u,v),std::max(.1f,aspect),points[n],points[n+1])&&shown;n+=2;}
  auto out=env->NewFloatArray(shown?8:0);if(shown)env->SetFloatArrayRegion(out,0,8,points.data());return out;
 }
-extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLobbyVisible(JNIEnv*,jobject,jboolean visible){lobbyVisible=visible;lobbyRight=lobbyForward=0;lobbyJump=lobbyCrouch=false;}
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLobbyVisible(JNIEnv*,jobject,jboolean visible){lobbyVisible=visible;lobbyRight=lobbyForward=0;lobbyJump=lobbyCrouch=false;std::lock_guard<std::mutex> lock(lobbyMutex);lobbyDx=lobbyDy=0;}
 extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeRequestSave(JNIEnv*,jobject){manualSave=1;manualSaveRequested=true;return 1;}
 extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeSaveResult(JNIEnv*,jobject){int result=manualSave.load();if(result==2||result==-1)manualSave=0;return result;}
 extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeJetpackState(JNIEnv*,jobject){return jetpackState.load();}
