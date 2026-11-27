@@ -99,6 +99,7 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
             2->{
                 titleText.text="НАСТРОЙКИ"
                 menu.addView(menuButton(if(muted)"Звук: выключен" else "Звук: включён"){muted=!muted;(context as? MainActivity)?.setLobbyMuted(muted);buildMenu()})
+                menu.addView(menuButton(if(introPaused)"Интро: продолжить" else "Интро: пауза"){introPaused=!introPaused;intro?.playing=!introPaused;buildMenu()})
                 menu.addView(menuButton("Управление: игрок"){(context as? MainActivity)?.editControls("player")})
                 menu.addView(menuButton("Управление: машина"){(context as? MainActivity)?.editControls("car")})
                 menu.addView(menuButton("Управление: дрон"){(context as? MainActivity)?.editControls("drone")})
