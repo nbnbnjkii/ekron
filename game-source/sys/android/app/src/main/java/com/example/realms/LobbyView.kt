@@ -74,6 +74,7 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
         addView(jumpControl,LayoutParams(dpi(size),dpi(size),Gravity.BOTTOM or Gravity.END).apply { rightMargin=dpi(8);bottomMargin=dpi(8+size) })
         addView(crouchControl,LayoutParams(dpi(size),dpi(size),Gravity.BOTTOM or Gravity.END).apply { rightMargin=dpi(8);bottomMargin=dpi(8) })
     }
+    fun back(){if(page==3)page=2 else page=0;buildMenu()}
     private fun clearMenu(){ while(menu.childCount>1)menu.removeViewAt(menu.childCount-1) }
     private fun buildMenu(){
         clearMenu()
@@ -87,7 +88,7 @@ class LobbyView(context: Context, private val resumeGame: () -> Unit, private va
                     menu.addView(menuButton("Начать игру"){page=1;buildMenu()})
                 }
                 menu.addView(menuButton("Новая игра"){page=1;buildMenu()})
-                if(canContinue)menu.addView(menuButton("Сохранить игру"){if(gameReady)saveGame();notice="Сохранение…";buildMenu()})
+                if(canContinue)menu.addView(menuButton("Сохранить игру"){if(gameReady){saveGame();notice="Сохранение…"}else notice="Карта готовится в фоне";buildMenu()})
                 menu.addView(menuButton("Настройки"){page=2;buildMenu()})
             }
             1->{

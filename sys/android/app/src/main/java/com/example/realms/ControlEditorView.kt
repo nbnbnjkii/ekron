@@ -97,18 +97,16 @@ class ControlEditorView(
             setPadding(dp(8f).toInt(), dp(4f).toInt(), dp(8f).toInt(), dp(4f).toInt())
             setBackgroundColor(0xff182a22.toInt())
         }
-        fun action(text: String, click: () -> Unit) = Button(context).apply {
-            this.text = text
-            textSize = 16f
-            minHeight = dp(48f).toInt()
-            setTextColor(Color.WHITE)
-            setOnClickListener { click() }
+        fun action(button:Button,text:String,click:()->Unit){
+            button.text=text;button.textSize=16f;button.minHeight=dp(56f).toInt();button.setTextColor(Color.WHITE)
+            button.setOnClickListener { click() }
+            toolbar.addView(button,LinearLayout.LayoutParams(0,-1,1f).apply { setMargins(dp(3f).toInt(),0,dp(3f).toInt(),0) })
         }
-        toolbar.addView(action("− Меньше") { resize(-0.1f) }, LinearLayout.LayoutParams(0, -1, 1f).apply { setMargins(dp(3f).toInt(), 0, dp(3f).toInt(), 0) })
-        toolbar.addView(action("+ Больше") { resize(0.1f) }, LinearLayout.LayoutParams(0, -1, 1f).apply { setMargins(dp(3f).toInt(), 0, dp(3f).toInt(), 0) })
-        toolbar.addView(action("Сброс") { resetSelected() }, LinearLayout.LayoutParams(0, -1, 1f).apply { setMargins(dp(3f).toInt(), 0, dp(3f).toInt(), 0) })
-        toolbar.addView(action("Отмена") { onDone(false) }, LinearLayout.LayoutParams(0, -1, 1f).apply { setMargins(dp(3f).toInt(), 0, dp(3f).toInt(), 0) })
-        toolbar.addView(action("Сохранить") { commit(); onDone(true) }, LinearLayout.LayoutParams(0, -1, 1f).apply { setMargins(dp(3f).toInt(), 0, dp(3f).toInt(), 0) })
+        action(decrease,"− Меньше"){resize(-.1f)}
+        action(increase,"+ Больше"){resize(.1f)}
+        action(resetBtn,"Вернуть"){resetSelected()}
+        action(cancelBtn,"Отмена"){cancel()}
+        action(saveBtn,"Сохранить"){commit();onDone(true)}
         addView(toolbar,LayoutParams(-1,footer.toInt(),android.view.Gravity.BOTTOM))
         selection.adapter=ArrayAdapter(context,android.R.layout.simple_spinner_dropdown_item,listOf("Выберите кнопку для изменения")+targets.map { it.label })
         selection.setBackgroundColor(0xffdce8df.toInt())
@@ -118,6 +116,7 @@ class ControlEditorView(
         }
         updateSelection()
     }
+    fun cancel(){onDone(false)}
     private fun resetSelected() {
         selected?.let { t ->
             t.dx = t.originalDx

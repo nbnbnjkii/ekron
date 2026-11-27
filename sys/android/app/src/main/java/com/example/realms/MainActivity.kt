@@ -691,6 +691,13 @@ class MainActivity : GameActivity() {
         videoEndedAt = SystemClock.elapsedRealtime()
         player?.release(); player = null; video?.visibility = View.GONE
     }
+    @Deprecated("GameActivity back navigation")
+    override fun onBackPressed(){
+        controlsEditor?.let { it.cancel();return }
+        lobby?.let { it.back();return }
+        if(worldReady){showLobby();return}
+        super.onBackPressed()
+    }
     override fun onDestroy() { catalogExecutor.shutdownNow();nativeReady(false); player?.release(); player = null; handler.removeCallbacks(poll); super.onDestroy() }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
