@@ -39,6 +39,13 @@ std::atomic<int> droneMode{0};
 std::atomic<int> thirdPerson{0},jetpackState{0};
 std::atomic<bool> jetpackThrust{false};
 std::atomic<bool> lobbyVisible{false};
+std::atomic<float> lobbyRight{0},lobbyForward{0};
+std::atomic<bool> lobbyJump{false},lobbyCrouch{false};
+float lobbyDx=0,lobbyDy=0;
+std::mutex lobbyMutex;
+std::array<float,5> lobbyPose{0,1.7f,-3,0,0};
+std::array<std::vector<unsigned char>,4> lobbyImages;
+std::array<bool,4> lobbyImageDirty{};
 std::atomic<int> graphicsQuality{1},graphicsFps{60},displayWidth{0},displayHeight{0};
 std::atomic<int> manualSave{0};
 std::atomic<bool> manualSaveRequested{false};
@@ -197,7 +204,29 @@ extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeGra
  graphicsQuality=std::clamp(int(quality),0,2);graphicsFps=fps==30?30:60;
  if(width>0&&height>0){displayWidth=width;displayHeight=height;}
 }
-extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLobbyVisible(JNIEnv*,jobject,jboolean visible){lobbyVisible=visible;}
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_LobbyView_nativeInput(JNIEnv*,jobject,jfloat right,jfloat forward,jfloat dx,jfloat dy,jboolean jump,jboolean crouch){
+ if(!lobbyVisible)return;
+ auto clean=[](float v,float cap){return std::isfinite(v)?std::clamp(v,-cap,cap):0.f;};
+ lobbyRight=clean(right,1);lobbyForward=clean(forward,1);if(jump)lobbyJump=true;lobbyCrouch=crouch;
+ std::lock_guard<std::mutex> lock(lobbyMutex);lobbyDx=std::clamp(lobbyDx+clean(dx,400),-400.f,400.f);lobbyDy=std::clamp(lobbyDy+clean(dy,400),-400.f,400.f);
+}
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_LobbyView_nativeScreen(JNIEnv*env,jobject,jint index,jbyteArray pixels){
+ if(index<0||index>3||!pixels||env->GetArrayLength(pixels)!=768*432*4)return;
+ std::lock_guard<std::mutex> lock(lobbyMutex);auto&bytes=lobbyImages[index];bytes.resize(768*432*4);env->GetByteArrayRegion(pixels,0,jsize(bytes.size()),reinterpret_cast<jbyte*>(bytes.data()));lobbyImageDirty[index]=true;
+}
+extern "C" JNIEXPORT jfloatArray JNICALL Java_com_example_realms_LobbyView_nativeHit(JNIEnv*env,jobject,jfloat x,jfloat y,jfloat aspect){
+ static thread_local sandbox::LobbyScene query;
+ {std::lock_guard<std::mutex> lock(lobbyMutex);query.x=lobbyPose[0];query.y=lobbyPose[1];query.z=lobbyPose[2];query.yaw=lobbyPose[3];query.pitch=lobbyPose[4];}
+ auto hit=query.hit(x,y,std::max(.1f,aspect));auto out=env->NewFloatArray(3);env->SetFloatArrayRegion(out,0,3,hit.data());return out;
+}
+extern "C" JNIEXPORT jfloatArray JNICALL Java_com_example_realms_LobbyView_nativeVideoCorners(JNIEnv*env,jobject,jfloat aspect){
+ static thread_local sandbox::LobbyScene query;
+ {std::lock_guard<std::mutex> lock(lobbyMutex);query.x=lobbyPose[0];query.y=lobbyPose[1];query.z=lobbyPose[2];query.yaw=lobbyPose[3];query.pitch=lobbyPose[4];}
+ std::array<float,8> points{};bool shown=true;int n=0;
+ for(int corner=0;corner<4;corner++){float u=corner==1||corner==2?1:0,v=corner>=2?1:0;shown=query.project(sandbox::LobbyScene::screenPoint(2,u,v),std::max(.1f,aspect),points[n],points[n+1])&&shown;n+=2;}
+ auto out=env->NewFloatArray(shown?8:0);if(shown)env->SetFloatArrayRegion(out,0,8,points.data());return out;
+}
+extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLobbyVisible(JNIEnv*,jobject,jboolean visible){lobbyVisible=visible;lobbyRight=lobbyForward=0;lobbyJump=lobbyCrouch=false;}
 extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeRequestSave(JNIEnv*,jobject){manualSave=1;manualSaveRequested=true;return 1;}
 extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeSaveResult(JNIEnv*,jobject){int result=manualSave.load();if(result==2||result==-1)manualSave=0;return result;}
 extern "C" JNIEXPORT jint JNICALL Java_com_example_realms_MainActivity_nativeJetpackState(JNIEnv*,jobject){return jetpackState.load();}
@@ -336,7 +365,7 @@ Renderer::~Renderer(){
  world_.equippedJetpack=int(jetpack_.state);
  if(saveDirty_)world_.save(savePath_);
  if(assetsInstalled_){world_.equippedJetpack=int(jetpack_.state);retainedWorld=world_;retainedDrone=drone_;retainedTool=tools_.tool;retainedFlying=flying_;}
- if(display_!=EGL_NO_DISPLAY){if(context_!=EGL_NO_CONTEXT&&surface_!=EGL_NO_SURFACE&&eglMakeCurrent(display_,surface_,surface_,context_)){militaryEffects_.release();droneModel_.release();remote_.release();car_.release();city_.release();textures_.release();if(skyProgram_)glDeleteProgram(skyProgram_);if(buffer_)glDeleteBuffers(1,&buffer_);if(vao_)glDeleteVertexArrays(1,&vao_);if(program_)glDeleteProgram(program_);}eglMakeCurrent(display_,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);if(context_!=EGL_NO_CONTEXT)eglDestroyContext(display_,context_);if(surface_!=EGL_NO_SURFACE)eglDestroySurface(display_,surface_);eglTerminate(display_);}
+ if(display_!=EGL_NO_DISPLAY){if(context_!=EGL_NO_CONTEXT&&surface_!=EGL_NO_SURFACE&&eglMakeCurrent(display_,surface_,surface_,context_)){lobbyRenderer_.release();militaryEffects_.release();droneModel_.release();remote_.release();car_.release();city_.release();textures_.release();if(skyProgram_)glDeleteProgram(skyProgram_);if(buffer_)glDeleteBuffers(1,&buffer_);if(vao_)glDeleteVertexArrays(1,&vao_);if(program_)glDeleteProgram(program_);}eglMakeCurrent(display_,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);if(context_!=EGL_NO_CONTEXT)eglDestroyContext(display_,context_);if(surface_!=EGL_NO_SURFACE)eglDestroySurface(display_,surface_);eglTerminate(display_);}
 }
 void Renderer::uploadDynamic(const std::vector<sandbox::MeshVertex>&vertices){
  glBindVertexArray(vao_);glBindBuffer(GL_ARRAY_BUFFER,buffer_);
@@ -493,9 +522,21 @@ void Renderer::render(){
   }
  }
  if(loadStage>=0&&loadStage<5)advanceLoading();
- // Keep EGL/vsync alive, but do not draw the entire military city behind an
- // opaque lobby/editor. Input/save handling still runs on the native loop.
- if(lobbyVisible&&loadStage==6){glClearColor(0,0,0,1);glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);eglSwapBuffers(display_,surface_);last_=std::chrono::steady_clock::now();return;}
+ // Lobby uses its own camera/collision world; gameplay stays paused.
+ // Input/save handling still runs on the native loop.
+ if(lobbyVisible){
+  eglQuerySurface(display_,surface_,EGL_WIDTH,&width_);eglQuerySurface(display_,surface_,EGL_HEIGHT,&height_);if(width_<1||height_<1)return;
+  if(!lobbyGpuReady_){lobbyGpuReady_=lobbyRenderer_.initialize();if(!lobbyGpuReady_){loadStage=-1;return;}
+   std::lock_guard<std::mutex> lock(lobbyMutex);for(int i=0;i<4;i++)lobbyImageDirty[i]=!lobbyImages[i].empty();}
+  auto time=std::chrono::steady_clock::now();float step=std::clamp(std::chrono::duration<float>(time-last_).count(),0.f,.05f);last_=time;
+  float dx,dy;{std::lock_guard<std::mutex> lock(lobbyMutex);dx=lobbyDx;dy=lobbyDy;lobbyDx=lobbyDy=0;}
+  lobbyScene_.update(lobbyRight.load(),lobbyForward.load(),dx,dy,lobbyJump.exchange(false),lobbyCrouch.load(),step);
+  {std::lock_guard<std::mutex> lock(lobbyMutex);
+   lobbyPose={lobbyScene_.x,lobbyScene_.y,lobbyScene_.z,lobbyScene_.yaw,lobbyScene_.pitch};
+   for(int i=0;i<4;i++)if(lobbyImageDirty[i]){lobbyRenderer_.image(i,lobbyImages[i].data());lobbyImageDirty[i]=false;}}
+  lobbyRenderer_.draw(lobbyScene_,width_,height_);eglSwapBuffers(display_,surface_);
+  if(loadStage==5){loadStage=6;loadPercent=100;}return;
+ }
  eglQuerySurface(display_,surface_,EGL_WIDTH,&width_);eglQuerySurface(display_,surface_,EGL_HEIGHT,&height_);if(width_<1||height_<1)return;
  const auto now=std::chrono::steady_clock::now();float dt=std::clamp(std::chrono::duration<float>(now-last_).count(),0.f,.05f);last_=now;
  if(gameplayReady&&city_.ready()){
