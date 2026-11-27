@@ -123,7 +123,7 @@ jobs:
         working-directory: sys/android
         run: |
           set +e
-          ./gradlew :app:assembleDebug :app:testDebugUnitTest --stacktrace 2>&1 | tee /tmp/android-build.log
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest --stacktrace 2>&1 | tee /tmp/android-build.log
           result=${PIPESTATUS[0]}
           if [ "$result" -ne 0 ]; then
             python3 -c 'import pathlib; s=pathlib.Path("/tmp/android-build.log").read_text(); lines=s.splitlines(); picks=[i for i,l in enumerate(lines) if any(k in l for k in ["e: file:","FAILURE:","What went wrong:"," error:","Could not", "Execution failed", "Caused by:"])]; text="\n".join("\n".join(lines[max(0,i-1):i+6]) for i in picks) or s[-10000:]; print("::error::"+text[:14000].replace("%","%25").replace("\r","%0D").replace("\n","%0A"))'
