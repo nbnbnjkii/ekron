@@ -45,6 +45,7 @@ private:
     sandbox::LobbyScene lobbyScene_;
     sandbox::LobbyRenderer lobbyRenderer_;
     bool lobbyGpuReady_=false;
+    std::chrono::steady_clock::time_point lobbyLast_=std::chrono::steady_clock::now();
     float placementDistance_=4.f;
     bool manualSaveInFlight_=false;
     bool crashSpectating_=false;

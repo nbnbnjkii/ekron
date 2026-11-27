@@ -24,6 +24,7 @@ class LobbyView(context:Context,private val resumeGame:()->Unit,private val newG
     private var right=0f;private var forward=0f;private var crouched=false
     private var introPaused=false
     private var introError=false
+    private var initialized=false
     private var intro:LobbyIntro?=null
     private val walkControl=StickView(context){r,f->right=r;forward=f;input()}
     private val lookControl=LookView(context){dx,dy->input(dx,dy)}
@@ -35,6 +36,7 @@ class LobbyView(context:Context,private val resumeGame:()->Unit,private val newG
     private fun input(dx:Float=0f,dy:Float=0f,jump:Boolean=false){nativeInput(right,forward,dx,dy,jump,crouched)}
     init {
         setWillNotDraw(false);isMotionEventSplittingEnabled=true
+        initialized=true
         intro=LobbyIntro(context){introError=true;dirty=true;invalidate()}
         addView(intro,LayoutParams(-1,-1))
         lookControl.onTap={x,y->click(x,y)};addView(lookControl,LayoutParams(-1,-1))
@@ -133,7 +135,7 @@ class LobbyView(context:Context,private val resumeGame:()->Unit,private val newG
         }
         postInvalidateDelayed(if(context.getSharedPreferences("graphics",0).getInt("fps",60)==30)33L else 16L)
     }
-    override fun onVisibilityChanged(changedView:View,visibility:Int){super.onVisibilityChanged(changedView,visibility);if(visibility!=VISIBLE){right=0f;forward=0f;nativeInput(0f,0f,0f,0f,false,false)};intro?.playing=isShown&&!introPaused}
+    override fun onVisibilityChanged(changedView:View,visibility:Int){super.onVisibilityChanged(changedView,visibility);if(initialized&&visibility!=VISIBLE){right=0f;forward=0f;nativeInput(0f,0f,0f,0f,false,false)};intro?.playing=isShown&&!introPaused}
     override fun onWindowVisibilityChanged(visibility:Int){super.onWindowVisibilityChanged(visibility);intro?.playing=visibility==VISIBLE&&!introPaused}
     override fun onDetachedFromWindow(){nativeInput(0f,0f,0f,0f,false,false);intro?.close();super.onDetachedFromWindow()}
 }

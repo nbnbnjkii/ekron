@@ -528,7 +528,7 @@ void Renderer::render(){
   eglQuerySurface(display_,surface_,EGL_WIDTH,&width_);eglQuerySurface(display_,surface_,EGL_HEIGHT,&height_);if(width_<1||height_<1)return;
   if(!lobbyGpuReady_){lobbyGpuReady_=lobbyRenderer_.initialize();if(!lobbyGpuReady_){loadStage=-1;return;}
    std::lock_guard<std::mutex> lock(lobbyMutex);for(int i=0;i<4;i++)lobbyImageDirty[i]=!lobbyImages[i].empty();}
-  auto time=std::chrono::steady_clock::now();float step=std::clamp(std::chrono::duration<float>(time-last_).count(),0.f,.05f);last_=time;
+  auto time=std::chrono::steady_clock::now();float step=std::clamp(std::chrono::duration<float>(time-lobbyLast_).count(),0.f,.05f);lobbyLast_=time;last_=time;
   float dx,dy;{std::lock_guard<std::mutex> lock(lobbyMutex);dx=lobbyDx;dy=lobbyDy;lobbyDx=lobbyDy=0;}
   lobbyScene_.update(lobbyRight.load(),lobbyForward.load(),dx,dy,lobbyJump.exchange(false),lobbyCrouch.load(),step);
   {std::lock_guard<std::mutex> lock(lobbyMutex);
