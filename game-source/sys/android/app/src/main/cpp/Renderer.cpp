@@ -355,6 +355,14 @@ void Renderer::handleInput(){
    world_.y=std::isfinite(ground)?ground+1.7f:1.7f;world_.yaw=world_.pitch=0;flying_=false;player_.reset(world_.x,world_.y,world_.z);resetInput();}
  }
  for(int command:pending){bool changed=false;
+  if(command==52||command==53){
+   if(seatedCar_<0&&!drone_.piloting()){
+    float delta=command==52?.5f:-.5f;
+    if(tools_.tool==sandbox::HandTool::SPAWN_GUN){placementDistance_=std::clamp(placementDistance_+delta,1.5f,12.f);placementPreview_.reset();}
+    else if(tools_.tool==sandbox::HandTool::GRAVITY_GUN&&tools_.holding())tools_.adjustDistance(delta);
+   }
+   continue;
+  }
   if(command==63&&city_.ready()){
    tools_.cancel(world_);seatedCar_=-1;drone_.mode=sandbox::FpvDrone::Absent;jetpack_.remove();jetpackState=0;
    world_.objects.clear();if(carParkingValid_)world_.objects.push_back(carParking_);
@@ -619,7 +627,7 @@ void Renderer::render(){
  }
  placementPreview_.reset();
  if(building_&&seatedCar_<0&&city_.ready()){
-  placementPreview_=sandbox::RaycastPlacement::preview(world_,*city_.scene().collision,builtCollision_,city_.scene().minimum,city_.scene().maximum);
+  placementPreview_=sandbox::RaycastPlacement::preview(world_,*city_.scene().collision,builtCollision_,city_.scene().minimum,city_.scene().maximum,placementDistance_);
   if(placementPreview_&&placementPreview_->type==8&&!car_.ready())placementPreview_.reset();
  }
  const float identity[16]={1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1};

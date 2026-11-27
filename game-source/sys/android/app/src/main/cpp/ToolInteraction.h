@@ -10,6 +10,8 @@ class ToolInteraction {
 public:
  HandTool tool=HandTool::HAND_EMPTY;
  int held=-1;
+ float holdDistance=3.5f;
+ void adjustDistance(float delta){if(std::isfinite(delta))holdDistance=std::clamp(holdDistance+delta,1.5f,12.f); }
  physics::Vec3 display{};
  Object original{};
  bool holding()const{return held>=0;}
@@ -30,7 +32,7 @@ public:
  }
  void pull(const World&w,float dt,const physics::CollisionMesh*mesh=nullptr){
   if(!holding())return;
-  physics::Vec3 target{w.x-std::sin(w.yaw)*3.5f,w.y+std::sin(w.pitch)*2,w.z-std::cos(w.yaw)*3.5f};
+  physics::Vec3 target{w.x-std::sin(w.yaw)*holdDistance,w.y+std::sin(w.pitch)*2,w.z-std::cos(w.yaw)*holdDistance};
   auto next=display+(target-display)*(1-std::exp(-8*dt));
   if(mesh){
    const auto&o=w.objects[held];

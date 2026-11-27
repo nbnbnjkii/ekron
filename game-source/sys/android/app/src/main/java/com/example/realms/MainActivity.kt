@@ -125,6 +125,7 @@ class MainActivity : GameActivity() {
     private var interactionCode=0
     private lateinit var interactionControl: HudButton
     private lateinit var catalogControl: HudButton
+    private lateinit var distanceActions: LinearLayout
     private lateinit var spawnActions: LinearLayout
     private lateinit var gravityActions: LinearLayout
     private lateinit var removeControl: HudButton
@@ -439,6 +440,10 @@ class MainActivity : GameActivity() {
         grabControl=addControl(gravityActions,"","grab") { nativeCommand(32) }.apply { contentDescription="Захват" }
         freezeControl=addControl(gravityActions,"Заморозить","freeze") { nativeCommand(38) }
         rotateHeldControl=addControl(gravityActions,"Вращать","rotate") { nativeCommand(33) }
+        distanceActions=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL;visibility=View.GONE }
+        addControl(distanceActions,"− Ближе",""){nativeCommand(53)}.apply { contentDescription="Приблизить предмет к игроку на полметра" }
+        addControl(distanceActions,"+ Дальше",""){nativeCommand(52)}.apply { contentDescription="Отодвинуть предмет от игрока на полметра" }
+        toolActions.addView(distanceActions)
         toolActions.addView(spawnActions)
         toolActions.addView(gravityActions)
         remoteActions=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL;visibility=View.GONE }
@@ -541,6 +546,7 @@ class MainActivity : GameActivity() {
         if(::movementControls.isInitialized)movementControls.visibility=if(interactionCode!=4)View.VISIBLE else View.GONE
         updateSelectedIcon()
         catalogControl.visibility=if(interactionCode!=4)View.VISIBLE else View.GONE
+        distanceActions.visibility=if((toolsState.spawnVisible||toolsState.holding)&&interactionCode!=4)View.VISIBLE else View.GONE
         spawnActions.visibility=if(toolsState.spawnVisible&&interactionCode!=4)View.VISIBLE else View.GONE
         remoteActions.visibility=if(toolsState.tool==HandTool.DRONE_REMOTE&&interactionCode!=4)View.VISIBLE else View.GONE
         gravityActions.visibility=if(toolsState.gravityVisible&&interactionCode!=4)View.VISIBLE else View.GONE

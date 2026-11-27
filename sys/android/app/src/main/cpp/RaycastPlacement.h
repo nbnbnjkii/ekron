@@ -24,19 +24,22 @@ public:
   physics::Vec3 inset=half-physics::Vec3{.0003f,.0003f,.0003f};
   return !city.intersectsBox(center,inset)&&!built.intersectsBox(center,inset);
  }
- static std::optional<Object> preview(const World&w,const physics::CollisionMesh&city,const physics::CollisionMesh&built,const std::array<float,3>&lo,const std::array<float,3>&hi){
+ static std::optional<Object> preview(const World&w,const physics::CollisionMesh&city,const physics::CollisionMesh&built,const std::array<float,3>&lo,const std::array<float,3>&hi,float requestedDistance=0){
   physics::Vec3 origin{w.x,w.y,w.z},dir{-std::sin(w.yaw)*std::cos(w.pitch),std::sin(w.pitch),-std::cos(w.yaw)*std::cos(w.pitch)};
   physics::CollisionMesh::RayHit hit{},other{};
-  bool found=city.raycast(origin,dir,20,hit);
-  if(built.raycast(origin,dir,found?hit.distance:20,other)){hit=other;found=true;}
-  if(!found||hit.distance<.35f||w.objects.size()>=World::limit)return {};
+  float reach=requestedDistance>0&&std::isfinite(requestedDistance)?std::clamp(requestedDistance,1.5f,12.f):20.f;
+  bool found=city.raycast(origin,dir,reach,hit);
+  if(built.raycast(origin,dir,found?hit.distance:reach,other)){hit=other;found=true;}
+  if((!found&&requestedDistance<=0)||(found&&hit.distance<.35f)||w.objects.size()>=World::limit)return {};
+  if(!found){hit.position=origin+dir*reach;hit.normal={0,0,0};}
   Object candidate{w.selected,w.rotation,0,0};candidate.yaw=candidate.type==8?candidate.rotation*1.57079632679f:0.f;auto b=World::bounds(candidate);
   float extent=std::abs(hit.normal.x)*b.w/2+std::abs(hit.normal.y)*b.h/2+std::abs(hit.normal.z)*b.d/2;
   auto center=hit.position+hit.normal*(extent+.0005f);
   candidate.x=center.x;candidate.z=center.z;candidate.y=center.y-b.h/2;
   // Floor orientation is world-horizontal, never aligned to a wall hit normal.
   if(candidate.type==1){candidate.tiltX=0;candidate.tiltZ=0;}
-  candidate.anchored=candidate.type!=8;candidate.surface=World::fixedSurface(candidate.type);
+  candidate.anchored=found&&candidate.type!=8;candidate.surface=World::fixedSurface(candidate.type);
+  if(!found)return valid(w,candidate,city,built,lo,hi)?std::optional<Object>{candidate}:std::nullopt;
   if(!valid(w,candidate,city,built,lo,hi)){
    // Slide the box ALONG the hit plane to fit under ceilings/next to corners.
    // Candidate shifts come from actual nearby surfaces, not navigation strips or the y=0 plane.
