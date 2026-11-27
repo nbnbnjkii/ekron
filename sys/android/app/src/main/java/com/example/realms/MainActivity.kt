@@ -441,8 +441,8 @@ class MainActivity : GameActivity() {
         freezeControl=addControl(gravityActions,"Заморозить","freeze") { nativeCommand(38) }
         rotateHeldControl=addControl(gravityActions,"Вращать","rotate") { nativeCommand(33) }
         distanceActions=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL;visibility=View.GONE }
-        addControl(distanceActions,"− Ближе",""){nativeCommand(53)}.apply { contentDescription="Приблизить предмет к игроку на полметра" }
-        addControl(distanceActions,"+ Дальше",""){nativeCommand(52)}.apply { contentDescription="Отодвинуть предмет от игрока на полметра" }
+        addControl(distanceActions,"Ближе","minus"){nativeCommand(53)}.apply { contentDescription="Приблизить предмет к игроку на полметра" }
+        addControl(distanceActions,"Дальше","plus"){nativeCommand(52)}.apply { contentDescription="Отодвинуть предмет от игрока на полметра" }
         toolActions.addView(distanceActions)
         toolActions.addView(spawnActions)
         toolActions.addView(gravityActions)
