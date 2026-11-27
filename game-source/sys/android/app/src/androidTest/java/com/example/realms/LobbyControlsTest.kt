@@ -39,10 +39,10 @@ class LobbyControlsTest {
             val editor=ControlEditorView(context,root,"test-ui"){exited=true}
             layout(editor,root.width,root.height)
             val buttons=children(editor).filterIsInstance<Button>()
-            assertEquals(4,buttons.size)
+            assertEquals(5,buttons.size)
             for(button in buttons)assertTrue("Action must have a >=48dp hit area",button.height>=48*d)
-            assertEquals(2,buttons.count { it.text.contains("меньшить")||it.text.contains("величить") })
-            val exit=buttons.single { it.text=="Сохранить и выйти" }
+            assertEquals(2,buttons.count { it.text.contains("Меньше")||it.text.contains("Больше") })
+            val exit=buttons.single { it.text=="Сохранить" }
             exit.performClick();assertTrue(exited)
             assertTrue(context.getSharedPreferences("controls-test-ui",0).contains("/0.s"))
             context.getSharedPreferences("controls-test-ui",0).edit().clear().commit()
