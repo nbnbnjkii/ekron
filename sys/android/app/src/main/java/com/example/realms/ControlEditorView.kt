@@ -10,7 +10,7 @@ import kotlin.math.*
 
 /** Edits normalized offsets and visual/touch scale, keeping native pointer handling intact. */
 class ControlEditorView(context:Context, root:ViewGroup, private val profile:String, private val done:()->Unit):android.widget.FrameLayout(context){
-    data class Target(val view:View,val key:String,val label:String,val rect:RectF,var dx:Float,var dy:Float,var scale:Float,val preview:View)
+    data class Target(val view:View,val key:String,val label:String,val rect:RectF,var dx:Float,var dy:Float,var scale:Float)
     private val prefs=context.getSharedPreferences("controls-$profile",0)
     private val targets=mutableListOf<Target>()
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG)
@@ -37,14 +37,7 @@ class ControlEditorView(context:Context, root:ViewGroup, private val profile:Str
                 if(relevant){val pos=IntArray(2);v.getLocationOnScreen(pos)
                     val dx=prefs.getFloat("$key.x",0f);val dy=prefs.getFloat("$key.y",0f)
                     val cx=pos[0]-origin[0]-v.translationX+v.width*(v.scaleX-1)/2;val cy=pos[1]-origin[1]-v.translationY+v.height*(v.scaleY-1)/2
-                    val preview:View=when(v){
-                        is StickView->StickView(context){_,_->}
-                        is HudButton->HudButton(context,v.caption,v.symbol).apply { visualScale=v.visualScale;danger=v.danger;isSelected=v.isSelected }
-                        is Button->Button(context).apply { text=v.text;textSize=v.textSize/resources.displayMetrics.scaledDensity }
-                        else->error("Unsupported control")
-                    }
-                    preview.measure(View.MeasureSpec.makeMeasureSpec(v.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(v.height,View.MeasureSpec.EXACTLY));preview.layout(0,0,v.width,v.height)
-                    targets.add(Target(v,key,label,RectF(cx,cy,cx+v.width,cy+v.height),dx,dy,prefs.getFloat("$key.s",1f),preview))
+                    targets.add(Target(v,key,label,RectF(cx,cy,cx+v.width,cy+v.height),dx,dy,prefs.getFloat("$key.s",1f)))
                 }
             }else if(v is ViewGroup)scan(v,key,inDrone||v is FpvControlView)
         }}
@@ -88,7 +81,7 @@ class ControlEditorView(context:Context, root:ViewGroup, private val profile:Str
         c.save();c.translate(originX,originY);c.scale(ratio,ratio)
         paint.color=0xff26362d.toInt();c.drawRect(0f,0f,sourceWidth,sourceHeight,paint)
         for(t in targets){val r=bounds(t)
-            c.save();c.translate(r.left,r.top);c.scale(t.scale,t.scale);t.preview.draw(c);c.restore()
+            c.save();c.translate(r.left,r.top);c.scale(t.scale,t.scale);t.view.draw(c);c.restore()
             if(t==selected){paint.color=0xff92ffd0.toInt();paint.style=Paint.Style.STROKE;paint.strokeWidth=dp(3f)/ratio;c.drawRoundRect(r,dp(8f),dp(8f),paint);paint.style=Paint.Style.FILL}
         }
         c.restore()
