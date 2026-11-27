@@ -32,6 +32,21 @@ public:
   if(built.raycast(origin,dir,found?hit.distance:reach,other)){hit=other;found=true;}
   if((!found&&requestedDistance<=0)||(found&&hit.distance<.35f)||w.objects.size()>=World::limit)return {};
   if(!found){hit.position=origin+dir*reach;hit.normal={0,0,0};}
+  // Adjusting distance over a floor must actually move the ghost, not just
+  // extend a ray which keeps hitting the same point under the crosshair.
+  if(found&&requestedDistance>0&&hit.normal.y>.64f){
+   physics::Vec3 horizontal{-std::sin(w.yaw),0,-std::cos(w.yaw)};
+   physics::CollisionMesh::RayHit obstruction{},otherWall{};
+   bool wall=city.raycast(origin,horizontal,reach,obstruction);
+   if(built.raycast(origin,horizontal,wall?obstruction.distance:reach,otherWall)){obstruction=otherWall;wall=true;}
+   if(wall&&obstruction.normal.y<=.64f)hit=obstruction;
+   else {
+    auto point=origin+horizontal*reach;
+    float floor=std::max(city.groundHeight(point.x,point.z,origin.y+.75f,lo[1]-5),built.groundHeight(point.x,point.z,origin.y+.75f,lo[1]-5));
+    if(!std::isfinite(floor))return {};
+    hit.position={point.x,floor,point.z};hit.normal={0,1,0};
+   }
+  }
   Object candidate{w.selected,w.rotation,0,0};candidate.yaw=candidate.type==8?candidate.rotation*1.57079632679f:0.f;auto b=World::bounds(candidate);
   float extent=std::abs(hit.normal.x)*b.w/2+std::abs(hit.normal.y)*b.h/2+std::abs(hit.normal.z)*b.d/2;
   auto center=hit.position+hit.normal*(extent+.0005f);
