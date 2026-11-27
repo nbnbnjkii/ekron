@@ -41,6 +41,7 @@ private:
     sandbox::PlayerView playerView_;
     sandbox::BlastEffects blasts_;
     sandbox::Jetpack jetpack_;
+    float placementDistance_=4.f;
     bool manualSaveInFlight_=false;
     bool crashSpectating_=false;
     float crashSpectateTime_=0;

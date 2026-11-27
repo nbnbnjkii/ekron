@@ -76,6 +76,8 @@ class HudButton(context: Context, var caption: String, var symbol: String) : Vie
         paint.color = Color.WHITE; paint.strokeWidth = 6f; paint.strokeCap = Paint.Cap.ROUND
         fun line(x: Float,y: Float,a: Float,b: Float) = canvas.drawLine(x,y,a,b,paint)
         when (symbol) {
+            "plus" -> { line(25f,43f,75f,43f);line(50f,18f,50f,68f) }
+            "minus" -> { line(25f,43f,75f,43f) }
             "backpack" -> { canvas.drawRoundRect(RectF(30f,27f,70f,65f),6f,6f,paint);canvas.drawRoundRect(RectF(40f,40f,60f,57f),3f,3f,paint);line(41f,25f,41f,18f);line(41f,18f,59f,18f);line(59f,18f,59f,25f) }
             "cube" -> { canvas.drawRect(RectF(31f,28f,62f,60f),paint);line(31f,28f,42f,18f);line(42f,18f,73f,18f);line(73f,18f,73f,50f);line(73f,50f,62f,60f);line(62f,28f,73f,18f) }
             "left", "right", "release" -> { val start=if(symbol=="left")70f else 30f;val end=100-start;line(start,40f,end,40f);line(end,40f,50f,22f);line(end,40f,50f,58f) }

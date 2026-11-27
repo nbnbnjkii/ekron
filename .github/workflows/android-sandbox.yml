@@ -23,6 +23,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test native world logic
         run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic tests/native/placement_distance_test.cpp -o /tmp/ekron-placement-distance
+          /tmp/ekron-placement-distance
           g++ -std=c++17 -Wall -Wextra -Werror tests/native/graphics_settings_test.cpp -o /tmp/ekron-graphics-settings
           /tmp/ekron-graphics-settings
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic tests/native/jetpack_test.cpp -o /tmp/ekron-jetpack

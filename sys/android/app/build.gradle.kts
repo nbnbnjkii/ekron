@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.realms"
         minSdk = 30
         targetSdk = 34
-        versionCode = 57
-        versionName = "0.57-desktop-ui"
+        versionCode = 58
+        versionName = "0.58-object-distance"
         externalNativeBuild {
             cmake { cppFlags += "-std=c++17" }
         }
