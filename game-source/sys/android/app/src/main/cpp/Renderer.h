@@ -18,6 +18,7 @@
 #include "PlayerView.h"
 #include "BlastEffects.h"
 #include "Jetpack.h"
+#include "LobbyRenderer.h"
 struct android_app;
 class Renderer {
 public:
@@ -41,6 +42,10 @@ private:
     sandbox::PlayerView playerView_;
     sandbox::BlastEffects blasts_;
     sandbox::Jetpack jetpack_;
+    sandbox::LobbyScene lobbyScene_;
+    sandbox::LobbyRenderer lobbyRenderer_;
+    bool lobbyGpuReady_=false;
+    std::chrono::steady_clock::time_point lobbyLast_=std::chrono::steady_clock::now();
     float placementDistance_=4.f;
     bool manualSaveInFlight_=false;
     bool crashSpectating_=false;
