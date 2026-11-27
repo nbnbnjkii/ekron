@@ -130,7 +130,7 @@ class LobbyView(context:Context,private val resumeGame:()->Unit,private val newG
         if(dirty)artwork()
         if(width>0&&height>0){val p=nativeVideoCorners(width.toFloat()/height)
             intro?.screenVisible=p.size==8
-            if(p.size==8){for(i in p.indices)p[i]*=if(i%2==0)width else height
+            if(p.size==8){for(i in p.indices)p[i]=p[i]*(if(i%2==0)width.toFloat() else height.toFloat())
                 val m=Matrix();m.setPolyToPoly(floatArrayOf(0f,0f,width.toFloat(),0f,width.toFloat(),height.toFloat(),0f,height.toFloat()),0,p,0,4);intro?.setTransform(m)}
         }
         postInvalidateDelayed(if(context.getSharedPreferences("graphics",0).getInt("fps",60)==30)33L else 16L)
