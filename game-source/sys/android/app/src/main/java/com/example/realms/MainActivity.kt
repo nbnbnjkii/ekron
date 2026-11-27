@@ -81,11 +81,15 @@ class MainActivity : GameActivity() {
         reveal(hud)
         hud.measure(View.MeasureSpec.makeMeasureSpec(hud.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(hud.height,View.MeasureSpec.EXACTLY))
         hud.layout(hud.left,hud.top,hud.right,hud.bottom)
-        val editor=ControlEditorView(this,hud,profile){
+        val editor=ControlEditorView(this,hud,profile){saved->
             controlsEditor?.let { (it.parent as? ViewGroup)?.removeView(it) };controlsEditor=null
-            lobby?.syncPlayerControls(hud,joystick,jumpControl,crouchControl)
-            lobby?.visibility=View.VISIBLE;lobby?.refresh()
-            ControlEditorView.apply(hud,profile)
+            if(saved){
+                lobby?.syncPlayerControls(hud,joystick,jumpControl,crouchControl)
+                lobby?.visibility=View.VISIBLE;lobby?.refresh()
+                ControlEditorView.apply(hud,profile)
+            }else{
+                lobby?.visibility=View.VISIBLE
+            }
         }
         hidden.forEach { it.visibility=View.GONE }
         controlsEditor=editor;lobby?.visibility=View.INVISIBLE
@@ -348,6 +352,7 @@ class MainActivity : GameActivity() {
         overlay.addView(jetpackWear,FrameLayout.LayoutParams(dp(150),dp(52),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin=dp(80) })
         jetpackRemove=Button(this).apply { text="Снять джетпак";textSize=10f;visibility=View.GONE;setOnClickListener { nativeJetpackThrust(false);nativeCommand(62) } }
         overlay.addView(jetpackRemove,FrameLayout.LayoutParams(dp(125),dp(44),Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin=dp(42) })
+
         jetpackLift=Button(this).apply { text="Тяга ↑";visibility=View.GONE;contentDescription="Тяга джетпака: удерживать" }
         jetpackLift.setOnTouchListener { view,event ->
             when(event.actionMasked){
@@ -618,7 +623,7 @@ class MainActivity : GameActivity() {
     }
     private fun setPaused(value: Boolean) {
         if(::toolWheel.isInitialized)toolWheel.cancel()
-        closePopup();weapon.sprinting=false;nativeSprint(false);nativeJetpackThrust(false);paused=value;joystick.reset();lookArea.reset();if(::driveStick.isInitialized)driveStick.reset();weapon.running=!value && active;nativeVertical(0f)
+        closePopup();weapon.sprinting=false;nativeSprint(false);nativeJetpackThrust(false);paused=value;if(::joystick.isInitialized)joystick.reset();lookArea.reset();if(::driveStick.isInitialized)driveStick.reset();weapon.running=!value && active;nativeVertical(0f)
         nativeReady(worldReady && active && !paused)
     }
     private fun showPauseMenu() { showLobby() }
