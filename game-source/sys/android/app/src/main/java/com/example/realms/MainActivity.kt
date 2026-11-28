@@ -39,10 +39,8 @@ class MainActivity : GameActivity() {
     private external fun nativeVertical(value: Float)
     private external fun nativeDroneInput(throttle:Float,yaw:Float,pitch:Float,roll:Float)
     private external fun nativeJetpackState(): Int
-    private external fun nativeJetpackThrust(pressed: Boolean)
     private lateinit var jetpackWear: Button
     private lateinit var jetpackRemove: Button
-    private lateinit var jetpackLift: Button
     private lateinit var jetpackIndicator: TextView
     private external fun nativeSprint(pressed: Boolean)
     private external fun nativeMove(right: Float, forward: Float)
@@ -98,7 +96,6 @@ class MainActivity : GameActivity() {
     fun setLobbyMuted(muted:Boolean){getSharedPreferences("settings",0).edit().putBoolean("muted",muted).apply();lobby?.setMuted(muted);player?.setVolume(if(muted)0f else 1f,if(muted)0f else 1f)}
     private fun showLobby(){
         if(lobby!=null)return
-        nativeJetpackThrust(false)
         setPaused(true);nativeLobbyVisible(true)
         fun leaveLobby(){
             lobby?.let { (it.parent as? ViewGroup)?.removeView(it) };lobby=null
@@ -157,7 +154,6 @@ class MainActivity : GameActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var coordinates: TextView
     private lateinit var flight: Button
-    private lateinit var altitude: LinearLayout
     private lateinit var loading: LinearLayout
     private lateinit var loadingText: TextView
     private lateinit var spinner: ProgressBar
@@ -199,7 +195,6 @@ class MainActivity : GameActivity() {
                     val jet=nativeJetpackState()
                     jetpackWear.visibility=if(jet==1&&interactionCode!=4)View.VISIBLE else View.GONE
                     jetpackRemove.visibility=if(jet==2&&interactionCode!=4)View.VISIBLE else View.GONE
-                    jetpackLift.visibility=if(jet==2&&interactionCode!=4)View.VISIBLE else View.GONE
                     jetpackIndicator.visibility=if(jet==2)View.VISIBLE else View.GONE
                 }
                 latest = state.copyOfRange(0, 3)
@@ -207,7 +202,6 @@ class MainActivity : GameActivity() {
                 val flying = state[3] > 0.5f
                 flyingNow = flying
                 flight.text = if (flying) "✈ Полёт: ВКЛ" else "✈ Полёт: ВЫКЛ"
-                altitude.visibility = if (flying) View.VISIBLE else View.GONE
                 val stage = state[4].toInt()
                 worldReady = stage == 6 && introFinished
                 lobby?.gameReady=worldReady
@@ -347,21 +341,13 @@ class MainActivity : GameActivity() {
         overlay.addView(sprint,FrameLayout.LayoutParams(dp(66),dp(54),Gravity.BOTTOM or Gravity.START).apply {
             leftMargin=dp(22);bottomMargin=dp(stickSize+30)
         })
-        jetpackIndicator=label("▣ Джетпак",12f).apply { visibility=View.GONE;contentDescription="Джетпак надет" }
+        jetpackIndicator=label("▣ Джетпак · полёт по взгляду",12f).apply { visibility=View.GONE;contentDescription="Джетпак надет" }
         overlay.addView(jetpackIndicator,FrameLayout.LayoutParams(-2,dp(32),Gravity.TOP or Gravity.END).apply { topMargin=dp(8);rightMargin=dp(145) })
         jetpackWear=Button(this).apply { text="Надеть джетпак";visibility=View.GONE;setOnClickListener { nativeCommand(61) } }
         overlay.addView(jetpackWear,FrameLayout.LayoutParams(dp(150),dp(52),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin=dp(80) })
-        jetpackRemove=Button(this).apply { text="Снять джетпак";textSize=10f;visibility=View.GONE;setOnClickListener { nativeJetpackThrust(false);nativeCommand(62) } }
+        jetpackRemove=Button(this).apply { text="Снять джетпак";textSize=10f;visibility=View.GONE;setOnClickListener { nativeCommand(62) } }
         overlay.addView(jetpackRemove,FrameLayout.LayoutParams(dp(125),dp(44),Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin=dp(42) })
 
-        jetpackLift=Button(this).apply { text="Тяга ↑";visibility=View.GONE;contentDescription="Тяга джетпака: удерживать" }
-        jetpackLift.setOnTouchListener { view,event ->
-            when(event.actionMasked){
-                MotionEvent.ACTION_DOWN -> { nativeJetpackThrust(true);view.isPressed=true }
-                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> { nativeJetpackThrust(false);view.isPressed=false;if(event.actionMasked==MotionEvent.ACTION_UP)view.performClick() }
-            };true
-        }
-        overlay.addView(jetpackLift,FrameLayout.LayoutParams(dp(78),dp(60),Gravity.BOTTOM or Gravity.END).apply { bottomMargin=dp(92);rightMargin=dp(152) })
         val pause = action("", "pause") { showPauseMenu() }.apply { visualScale=.73f }
         pause.contentDescription = "Пауза"
         overlay.addView(pause, FrameLayout.LayoutParams(dp(60), dp(60), Gravity.TOP or Gravity.END).apply { topMargin=dp(6); rightMargin=dp(8) })
@@ -454,22 +440,8 @@ class MainActivity : GameActivity() {
         interactionControl=action("Открыть","grab") { nativeCommand(if(interactionCode==6)43 else 36) }.apply { visibility=View.GONE }
         overlay.addView(interactionControl,FrameLayout.LayoutParams(dp(80),dp(60),Gravity.BOTTOM or Gravity.END).apply { bottomMargin=dp(8);rightMargin=dp(76) })
         renderTools()
-        // Flight is now in the pause menu; its altitude controls do not cover the action column.
+        // Flight uses camera direction; no separate up/down controls.
         flight = Button(this)
-        altitude = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL;visibility=View.GONE }
-        fun verticalButton(text: String, direction: Float) {
-            altitude.addView(Button(this).apply {
-                this.text=text;isAllCaps=false;textSize=11f
-                setOnTouchListener { v,e ->
-                    when(e.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> { nativeVertical(direction);v.isPressed=true }
-                        MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> { nativeVertical(0f);v.isPressed=false }
-                    };true
-                }
-            },LinearLayout.LayoutParams(dp(84),dp(48)))
-        }
-        verticalButton("↑ Вверх",1f);verticalButton("↓ Вниз",-1f)
-        overlay.addView(altitude,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER_VERTICAL or Gravity.END).apply { rightMargin=dp(actionSize+20) })
 
         // Independent Android widgets remain responsive while GLB parsing runs on the native thread.
         loading = LinearLayout(this).apply {
@@ -629,7 +601,7 @@ class MainActivity : GameActivity() {
     }
     private fun setPaused(value: Boolean) {
         if(::toolWheel.isInitialized)toolWheel.cancel()
-        closePopup();weapon.sprinting=false;nativeSprint(false);nativeJetpackThrust(false);paused=value;if(::joystick.isInitialized)joystick.reset();lookArea.reset();if(::driveStick.isInitialized)driveStick.reset();weapon.running=!value && active;nativeVertical(0f)
+        closePopup();weapon.sprinting=false;nativeSprint(false);paused=value;if(::joystick.isInitialized)joystick.reset();lookArea.reset();if(::driveStick.isInitialized)driveStick.reset();weapon.running=!value && active;nativeVertical(0f)
         nativeReady(worldReady && active && !paused)
     }
     private fun showPauseMenu() { showLobby() }

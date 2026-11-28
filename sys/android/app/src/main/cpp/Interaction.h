@@ -31,7 +31,7 @@ inline int interactionTarget(const World&w,const physics::CollisionMesh&city){
  for(size_t i=0;i<w.objects.size();i++){physics::CollisionMesh mesh;addObjectCollision(mesh,w.objects[i]);mesh.build();if(mesh.raycast(origin,dir,distance,hit)){distance=hit.distance;target=(w.objects[i].type==3||w.objects[i].type==8||w.objects[i].type==7)?int(i):-1;}}
  return target;
 }
-inline physics::Vec3 driverSeat(const Object&o){float x=o.type==7?0:.55f,z=o.type==7?.08f:-.45f;float c=std::cos(o.yaw),s=std::sin(o.yaw);return {o.x+c*x+s*z,o.y+(o.type==7?1.48f:1.35f),o.z-s*x+c*z};}
+inline physics::Vec3 driverSeat(const Object&o){float x=o.type==7?0:.55f,z=o.type==7?.08f:-.45f;float c=std::cos(o.yaw),s=std::sin(o.yaw);return {o.x+c*x+s*z,o.y+(o.type==7?1.48f:1.50f),o.z-s*x+c*z};}
 inline std::optional<physics::Vec3> carExit(const World&w,int index,const physics::CollisionMesh&city,const physics::CollisionMesh&built,const std::array<float,3>&lo,const std::array<float,3>&hi){
  auto b=World::bounds(w.objects[index]);physics::PlayerController player;
  for(float extra:{.65f,1.2f})for(auto offset:{physics::Vec3{b.w/2+extra,0,0},physics::Vec3{-b.w/2-extra,0,0},physics::Vec3{0,0,b.d/2+extra},physics::Vec3{0,0,-b.d/2-extra}}){
