@@ -66,6 +66,7 @@ public:
     bool overlaps(const CollisionMesh&mesh,float x,float eyeY,float z)const{return contacts(mesh,{x,eyeY-1.7f,z},1.8f);}
     void update(const CollisionMesh&mesh,float right,float forward,float yaw,float dt,bool crouched,float &x,float &y,float &z,const CollisionMesh *extra=nullptr,bool prone=false,const CollisionMesh *fenceBarriers=nullptr,bool sprint=false,bool jetFlight=false,float pitch=0){
         if(!initialized_)reset(x,y,z);
+        const bool poweredFlight=jetFlight&&std::hypot(right,forward)>.1f;
         // Crouch keeps the feet still; standing up is refused under a concrete frame/ceiling.
         float desired=prone?.55f:crouched?1.f:1.8f;
         if(desired<=height_||(!contacts(mesh,feet_,desired)&&(!extra||!contacts(*extra,feet_,desired)))){
@@ -75,22 +76,22 @@ public:
         constexpr float step=1.f/120;
         while(accumulator_>=step){
             accumulator_-=step;bool wasGrounded=grounded_;
-            if(jump_&&grounded_&&!prone&&!jetFlight){velocity_=6.5f;grounded_=false;wasGrounded=false;}jump_=false;
-            float lengthInput=std::max(1.f,std::hypot(right,forward)),speed=jetFlight?(sprint?12.f:8.f):height_<.6f?1.f:height_<1.5f?2.2f:sprint?5.8f:2.7f;
+            if(jump_&&grounded_&&!prone&&!poweredFlight){velocity_=6.5f;grounded_=false;wasGrounded=false;}jump_=false;
+            float lengthInput=std::max(1.f,std::hypot(right,forward)),speed=poweredFlight?(sprint?12.f:8.f):height_<.6f?1.f:height_<1.5f?2.2f:sprint?5.8f:2.7f;
             float flightPitch=std::isfinite(pitch)?std::clamp(pitch,-1.57079633f,1.57079633f):0.f;
-            float horizontalForward=forward*(jetFlight?std::cos(flightPitch):1.f);
+            float horizontalForward=forward*(poweredFlight?std::cos(flightPitch):1.f);
             Vec3 before=feet_;
             feet_.x+=(std::cos(yaw)*right-std::sin(yaw)*horizontalForward)/lengthInput*speed*step;
             feet_.z+=(-std::sin(yaw)*right-std::cos(yaw)*horizontalForward)/lengthInput*speed*step;
-            bool stepped=!jetFlight&&wasGrounded&&velocity_<=0&&height_>.6f&&tryStep(mesh,extra,before,feet_);
-            if(jetFlight){
+            bool stepped=!poweredFlight&&wasGrounded&&velocity_<=0&&height_>.6f&&tryStep(mesh,extra,before,feet_);
+            if(poweredFlight){
                 // Fly along the camera's forward axis, but retain the capsule solver.
-                // No input means hover; removing equipment immediately restores gravity.
+                // Releasing the stick stops lift and restores ordinary gravity.
                 velocity_=0;feet_.y+=std::sin(flightPitch)*forward/lengthInput*speed*step;grounded_=false;
             }else if(!stepped){velocity_=std::max(-30.f,velocity_-18.f*step);feet_.y+=velocity_*step;grounded_=false;}
             confine();solve(mesh);if(extra)solve(*extra);if(fenceBarriers)solve(*fenceBarriers);confine();
             // Follow small downhill changes, but NEVER snap over an actual pit or from mid-air.
-            if(!jetFlight&&wasGrounded&&!grounded_&&velocity_<=0){
+            if(!poweredFlight&&wasGrounded&&!grounded_&&velocity_<=0){
                 float floor=mesh.groundHeight(feet_.x,feet_.z,feet_.y+.08f,feet_.y-.18f);
                 if(std::isfinite(floor)&&feet_.y-floor<.18f){feet_.y=floor+.0005f;solve(mesh);grounded_=true;velocity_=0;}
             }

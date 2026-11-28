@@ -15,7 +15,7 @@ struct Jetpack {
  void update(float dt,bool active,float effort){
   dt=std::isfinite(dt)?std::clamp(dt,0.f,.05f):0.f;
   phase_=std::fmod(phase_+dt*1.8f,1.f);
-  float target=active&&state==Worn?.35f+.65f*std::clamp(effort,0.f,1.f):0.f;
+  float target=active&&state==Worn&&effort>.1f?.35f+.65f*std::clamp(effort,0.f,1.f):0.f;
   air_+=(target-air_)*(1-std::exp(-12.f*dt));
  }
  void appendExhaust(std::vector<MeshVertex>&out,physics::Vec3 eye,float yaw)const{
