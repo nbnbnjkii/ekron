@@ -570,9 +570,9 @@ void Renderer::render(){
    car.yaw-=std::clamp(yawRate,-maxYawRate,maxYawRate)*dt;
    int rounded=int(std::lround(car.yaw/1.57079632679f))%4;if(rounded<0)rounded+=4;car.rotation=rounded;
    c=std::cos(car.yaw);s=std::sin(car.yaw);
-   forwardSpeed=(forwardSpeed+throttle*14.f*dt)*std::exp(-(throttle!=0 ? .35f : 1.6f)*dt);
+   forwardSpeed=(forwardSpeed+throttle*20.f*dt)*std::exp(-(throttle!=0 ? .30f : 1.6f)*dt);
    lateralSpeed*=std::exp(-9.f*dt); // tyre grip: kill the ice-like sideways slide
-   forwardSpeed=std::clamp(forwardSpeed,-9.f,30.f);
+   forwardSpeed=std::clamp(forwardSpeed,-11.f,38.f);
    car.vx=c*forwardSpeed+s*lateralSpeed;car.vz=-s*forwardSpeed+c*lateralSpeed;
    if(std::abs(car.yaw-previousYaw)>.0001f)rebuildBuiltCollision();
    auto seat=sandbox::driverSeat(car);seatTime_=std::min(1.f,seatTime_+dt/.65f);float t=seatTime_*seatTime_*(3-2*seatTime_);auto p=seatFrom_+(seat-seatFrom_)*t;
