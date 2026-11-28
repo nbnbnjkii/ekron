@@ -3,6 +3,9 @@
 #include <iostream>
 int main(){using namespace sandbox;
  LobbyScene s;
+ std::array<bool,16> drawings{};
+ for(const auto&v:s.room)if(v.layer>=16){int tile=int(v.layer)-16;assert(tile>=0&&tile<16);drawings[tile]=true;assert(v.u>=-.001f&&v.u<=1.001f&&v.v>=-.001f&&v.v<=1.001f);}
+ for(bool present:drawings)assert(present); // Every original drawing is actually on room geometry.
  assert(s.room.size()>10000); // Detailed native bunker, not the old empty room.
  s.update(0,0,0,0,false,false,1.f/60);assert(!s.effects.empty());auto first=s.effects.front();
  s.update(0,0,0,0,false,false,1.f/60);assert(s.effects.front().x!=first.x||s.effects.front().y!=first.y);

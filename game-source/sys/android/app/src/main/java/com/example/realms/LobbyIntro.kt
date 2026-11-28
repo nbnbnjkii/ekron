@@ -20,7 +20,7 @@ class LobbyIntro(context:Context, private val failed:()->Unit):TextureView(conte
     init {isOpaque=false;isClickable=false;surfaceTextureListener=this;alpha=0f}
     fun setMuted(value:Boolean){muted=value;player?.let { runCatching { it.setVolume(if(value)0f else 1f,if(value)0f else 1f) } }}
     private fun reconcile(){
-        alpha=if(screenVisible)1f else 0f
+        alpha=if(screenVisible&&prepared&&!closed)1f else 0f
         val p=player?:return
         if(prepared)runCatching { if(playing&&screenVisible&&windowVisibility==VISIBLE&&isShown)p.start() else p.pause() }
     }
@@ -33,10 +33,10 @@ class LobbyIntro(context:Context, private val failed:()->Unit):TextureView(conte
                 context.assets.openFd("intro.mp4").use { p.setDataSource(it.fileDescriptor,it.startOffset,it.length) }
                 p.setSurface(surface);p.isLooping=true
                 p.setOnPreparedListener { if(!closed){prepared=true;setMuted(muted);reconcile()} }
-                p.setOnErrorListener { _,_,_->failed();true }
+                p.setOnErrorListener { _,_,_->prepared=false;reconcile();failed();true }
                 p.prepareAsync()
             }
-        }catch(_:Exception){failed()}
+        }catch(_:Exception){prepared=false;reconcile();failed()}
     }
     override fun onSurfaceTextureDestroyed(texture:SurfaceTexture):Boolean{
         runCatching { player?.pause();player?.setSurface(null) };surface?.release();surface=null;return true

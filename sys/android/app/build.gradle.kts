@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.realms"
         minSdk = 30
         targetSdk = 34
-        versionCode = 64
-        versionName = "0.64-military-lobby"
+        versionCode = 65
+        versionName = "0.65-lobby-art-video"
         externalNativeBuild {
             cmake { cppFlags += "-std=c++17" }
         }

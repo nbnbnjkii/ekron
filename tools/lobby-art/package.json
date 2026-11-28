@@ -1,0 +1,1 @@
+{"private":true,"type":"module","scripts":{"export":"node export.mjs"},"dependencies":{"@napi-rs/canvas":"0.1.80","typescript":"5.9.3"}}

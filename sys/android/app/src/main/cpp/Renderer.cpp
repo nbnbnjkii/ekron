@@ -223,7 +223,7 @@ extern "C" JNIEXPORT jfloatArray JNICALL Java_com_example_realms_LobbyView_nativ
  static thread_local sandbox::LobbyScene query;
  {std::lock_guard<std::mutex> lock(lobbyMutex);query.x=lobbyPose[0];query.y=lobbyPose[1];query.z=lobbyPose[2];query.yaw=lobbyPose[3];query.pitch=lobbyPose[4];}
  std::array<float,8> points{};bool shown=true;int n=0;
- for(int corner=0;corner<4;corner++){float u=corner==1||corner==2?1:0,v=corner>=2?1:0;shown=query.project(sandbox::LobbyScene::screenPoint(2,u,v),std::max(.1f,aspect),points[n],points[n+1])&&shown;n+=2;}
+ for(int corner=0;corner<4;corner++){float u=corner==1||corner==2?.965f:.035f,v=corner>=2?.925f:.18f;shown=query.project(sandbox::LobbyScene::screenPoint(2,u,v),std::max(.1f,aspect),points[n],points[n+1])&&shown;n+=2;}
  auto out=env->NewFloatArray(shown?8:0);if(shown)env->SetFloatArrayRegion(out,0,8,points.data());return out;
 }
 extern "C" JNIEXPORT void JNICALL Java_com_example_realms_MainActivity_nativeLobbyVisible(JNIEnv*,jobject,jboolean visible){lobbyVisible=visible;lobbyRight=lobbyForward=0;lobbyJump=lobbyCrouch=false;std::lock_guard<std::mutex> lock(lobbyMutex);lobbyDx=lobbyDy=0;}
@@ -525,7 +525,7 @@ void Renderer::render(){
  // Input/save handling still runs on the native loop.
  if(lobbyVisible){
   eglQuerySurface(display_,surface_,EGL_WIDTH,&width_);eglQuerySurface(display_,surface_,EGL_HEIGHT,&height_);if(width_<1||height_<1)return;
-  if(!lobbyGpuReady_){lobbyGpuReady_=lobbyRenderer_.initialize();if(!lobbyGpuReady_){loadStage=-1;return;}
+  if(!lobbyGpuReady_){lobbyGpuReady_=lobbyRenderer_.initialize(app_->activity->assetManager);if(!lobbyGpuReady_){loadStage=-1;return;}
    std::lock_guard<std::mutex> lock(lobbyMutex);for(int i=0;i<4;i++)lobbyImageDirty[i]=!lobbyImages[i].empty();}
   auto time=std::chrono::steady_clock::now();float step=std::clamp(std::chrono::duration<float>(time-lobbyLast_).count(),0.f,.05f);lobbyLast_=time;last_=time;
   float dx,dy;{std::lock_guard<std::mutex> lock(lobbyMutex);dx=lobbyDx;dy=lobbyDy;lobbyDx=lobbyDy=0;}
