@@ -1,3 +1,4 @@
+#include "CrashCamera.h"
 #include "Renderer.h"
 #include "GraphicsSettings.h"
 #include <thread>
@@ -600,7 +601,7 @@ void Renderer::render(){
   }
   if(gameplayReady)drone_.update(dt,droneRollInput.load(),dronePitchInput.load(),droneThrottle.load(),droneYawInput.load(),0,*city_.scene().collision,builtCollision_);
   if(drone_.crashPending){drone_.crashPending=false;
-   crashSpectateFrom_=drone_.camera();crashSpectateTarget_=drone_.crashPoint;crashSpectateTime_=0;crashSpectating_=true;
+   crashSpectateTarget_=drone_.crashPoint;crashSpectateFrom_=sandbox::crashOverview(drone_.crashPoint,drone_.yaw,*city_.scene().collision,builtCollision_);crashSpectateTime_=0;crashSpectating_=true;
    blasts_.explode(world_,drone_.crashPoint);tools_.select(world_,sandbox::HandTool::HAND_EMPTY);building_=false;droneThrottle=droneYawInput=dronePitchInput=droneRollInput=0;resetInput();saveDirty_=true;}
   if(drone_.piloting()||drone_.mode==sandbox::FpvDrone::Hover||drone_.mode==sandbox::FpvDrone::Returning){
    drone_.position.x=std::clamp(drone_.position.x,city_.scene().minimum[0]+.25f,city_.scene().maximum[0]-.25f);
@@ -625,8 +626,8 @@ void Renderer::render(){
   if(gameplayReady)blasts_.update(dt,*city_.scene().collision,builtCollision_);
  }
  if(crashSpectating_){
-   crashSpectateTime_+=dt;
-   constexpr float hold=.9f,ease=.7f;
+   if(gameplayReady)crashSpectateTime_+=dt;
+   constexpr float hold=1.3f,ease=.9f;
    if(crashSpectateTime_<hold){cameraEye=crashSpectateFrom_;}
    else{float t=std::min(1.f,(crashSpectateTime_-hold)/ease);t=t*t*(3-2*t);cameraEye=crashSpectateFrom_+(physics::Vec3{world_.x,world_.y,world_.z}-crashSpectateFrom_)*t;}
    auto aim=crashSpectateTarget_-cameraEye;float len=physics::length(aim);

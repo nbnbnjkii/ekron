@@ -4,7 +4,7 @@ namespace sandbox {
 // Bounded off-road step assist. Requires tyres on real terrain and sweeps both
 // the lift and the raised chassis path; never disables collision or fills pits.
 template<class Ground,class Blocked>
-bool tryCarTerrainStep(Object&o,float dx,float dz,Ground ground,Blocked blocked){
+bool tryCarTerrainStep(Object&o,float dx,float dz,Ground ground,Blocked blocked,const physics::CollisionMesh*terrain=nullptr){
  if(o.type!=8||o.frozen||o.anchored||o.destroyed||std::abs(o.tiltX)>.4f||std::abs(o.tiltZ)>.4f)return false;
  float distance=std::hypot(dx,dz);if(distance<.0001f||distance>.5f)return false;
  if(!blocked(o.x+dx,o.y,o.z+dz))return false;
@@ -21,6 +21,17 @@ bool tryCarTerrainStep(Object&o,float dx,float dz,Ground ground,Blocked blocked)
  for(float x:{-1.f,0.f,1.f})for(float z:{-1.f,0.f,1.f}){
   auto p=objectCorner(o,x,-1,z);float h=ground(p.x+dx+dx/distance*.10f,p.z+dz+dz/distance*.10f,baseline+maxRise,baseline+.025f);
   if(std::isfinite(h))obstacle=std::max(obstacle,h);
+ }
+ // Sparse wheel/corner rays miss small stones between the nine probes.
+ // Query actual nearby city triangles so narrow off-centre rocks count too.
+ if(terrain){
+  physics::Bounds area;
+  for(float x:{-1.f,1.f})for(float z:{-1.f,1.f}){auto p=objectCorner(o,x,-1,z);area.add({p.x+dx,baseline+.025f,p.z+dz});area.add({p.x+dx,baseline+maxRise,p.z+dz});}
+  terrain->query(area,[&](const physics::Triangle&t){
+   auto sample=[&](physics::Vec3 p){if(p.x<area.lo.x||p.x>area.hi.x||p.z<area.lo.z||p.z>area.hi.z)return;
+    float h=ground(p.x,p.z,baseline+maxRise,baseline+.025f);if(std::isfinite(h))obstacle=std::max(obstacle,h);};
+   sample((t.a+t.b+t.c)*(1.f/3));sample(t.a);sample(t.b);sample(t.c);
+  });
  }
  if(obstacle<baseline+.025f||obstacle>baseline+maxRise)return false;
  for(float lift=.03f;lift<=maxRise+.001f;lift+=.03f){

@@ -29,6 +29,8 @@ jobs:
           /tmp/ekron-placement-distance
           g++ -std=c++17 -Wall -Wextra -Werror tests/native/graphics_settings_test.cpp -o /tmp/ekron-graphics-settings
           /tmp/ekron-graphics-settings
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic tests/native/crash_camera_test.cpp -o /tmp/ekron-crash-camera
+          /tmp/ekron-crash-camera
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic tests/native/car_traversal_test.cpp -o /tmp/ekron-car-traversal
           /tmp/ekron-car-traversal
           g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic tests/native/jetpack_test.cpp -o /tmp/ekron-jetpack
