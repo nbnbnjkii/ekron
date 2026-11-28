@@ -58,7 +58,12 @@ class LobbyView(context:Context,private val resumeGame:()->Unit,private val newG
     private fun artwork(){
         val prefs=context.getSharedPreferences("graphics",0)
         for(i in 0..3){
-            val c=Canvas(pixels);c.drawColor(0xff13281e.toInt())
+            val c=Canvas(pixels)
+            if(i!=1){
+                LobbyMonitorArt.draw(c,i,page,gameReady,canContinue,notice,introError)
+                bytes.clear();pixels.copyPixelsToBuffer(bytes);nativeScreen(i,bytes.array());continue
+            }
+            c.drawColor(0xff13281e.toInt())
             paint.typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD);paint.color=0xffa7eac0.toInt();paint.textSize=32f
             c.drawText(listOf("ЭКРОН · КОМАНДНЫЙ ПУНКТ","НАСТРОЙКИ / ИНФОРМАЦИЯ","ИНТРО · касание: пауза","ПОЛЕВОЕ РУКОВОДСТВО")[i],20f,48f,paint)
             fun row(n:Int,text:String,button:Boolean=true,left:Float=12f,end:Float=756f,active:Boolean=false){

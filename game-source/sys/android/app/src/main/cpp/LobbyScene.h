@@ -1,6 +1,7 @@
 #pragma once
 #include "MeshGeometry.h"
 #include "PlayerPhysics.h"
+#include "LobbyDecor.h"
 #include <array>
 namespace sandbox {
 class LobbyScene {
@@ -8,25 +9,18 @@ class LobbyScene {
  physics::PlayerController player_;
 public:
  float x=0,y=1.7f,z=-3,yaw=0,pitch=0;bool crouched=false;
- std::vector<MeshVertex> room;
+ std::vector<MeshVertex> room,effects;
+ float clock=0;
  static physics::Vec3 screenPoint(int screen,float u,float v){
   float across=(u-.5f)*6.4f,yy=3.9f-v*3.6f;
   switch(screen){case 0:return {across,yy,-7.94f};case 1:return {7.94f,yy,across};case 2:return {-across,yy,7.94f};default:return {-7.94f,yy,-across};}
  }
  LobbyScene(){
-  auto box=[&](Box b){appendCube(room,b);collision_.addBox({b.x-b.w/2,b.y-b.h/2,b.z-b.d/2},{b.x+b.w/2,b.y+b.h/2,b.z+b.d/2});};
-  box({0,-.2f,0,16,.4f,16,.23f,.26f,.21f,Plain});
-  for(int i=0;i<4;i++){
-   bool side=i%2;float pos=i<2?-8.15f:8.15f;
-   box({side?pos:0,2.5f,side?0:pos,side?.3f:16.6f,5,side?16.6f:.3f,.17f,.22f,.18f,Plain});
-  }
-  // Ceiling, steel beams and real colliding military supply crates.
-  box({0,5.2f,0,16.6f,.4f,16.6f,.12f,.16f,.14f,Plain});
-  for(float side:{-1.f,1.f}){box({side*6.8f,.55f,5.5f,1.3f,1.1f,1.3f,.25f,.30f,.17f,Plain});box({side*6.8f,1.25f,5.5f,1.f,.3f,1.f,.19f,.24f,.13f,Plain});}
-  for(int i=-6;i<=6;i+=4)appendCube(room,{float(i),4.9f,0,.14f,.2f,16,.08f,.11f,.10f,Plain});
+  LobbyDecor{room,collision_}.build();
   collision_.build();player_.setBoundary(-8,8,-8,8);player_.reset(x,y,z);
  }
  void update(float right,float forward,float dx,float dy,bool jump,bool crouch,float dt){
+  clock=std::fmod(clock+std::clamp(dt,0.f,.05f),3600.f);effects.clear();LobbyDecor{effects,collision_}.hologram(clock);
   yaw-=std::clamp(dx,-400.f,400.f)*.004f;pitch=std::clamp(pitch-dy*.004f,-1.3f,1.3f);crouched=crouch;
   if(jump)player_.jump();
   player_.update(collision_,right,forward,yaw,dt,crouched,x,y,z);
