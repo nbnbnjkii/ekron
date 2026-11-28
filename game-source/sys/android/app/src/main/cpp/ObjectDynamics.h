@@ -5,6 +5,7 @@
 #include "ObjectOverlap.h"
 #include "BodyContacts.h"
 #include "CarSuspension.h"
+#include "CarTraversal.h"
 #include "PairSolver.h"
 #include "SupportGeometry.h"
 #include "CityDepenetration.h"
@@ -46,9 +47,6 @@ public:
     // Sleeping support validation is read-only. Previously every validation
     // also ran depenetration/impulses, moving an otherwise resting body upward.
     if(o.awake)recoverCityContact(o,mesh);
-    std::vector<physics::Vec3>citySupport;
-    bool cityWall=o.awake?solveCityContactVelocities(o,mesh,&citySupport):false;
-    Object beforeStep=o;
     auto b=World::bounds(o);physics::Vec3 half{b.w/2,b.h/2,b.d/2};
     auto radius=[&](){return std::abs(std::sin(o.tiltZ))*half.x+std::abs(std::cos(o.tiltZ)*std::cos(o.tiltX))*half.y+std::abs(std::cos(o.tiltZ)*std::sin(o.tiltX))*half.z;};
     if(!o.awake){
@@ -76,6 +74,12 @@ public:
      if(objectOverlap(mesh,candidate,center))return true;
      return broadphase_.overlaps(w,index,candidate,center);
     };
+    // Attempt before wall impulses remove the drive velocity. Preserve the
+    // raised start for CCD; horizontal travel still uses normal collision.
+    if(o.awake)tryCarTerrainStep(o,o.vx*step,o.vz*step,ground,collides);
+    std::vector<physics::Vec3>citySupport;
+    bool cityWall=o.awake?solveCityContactVelocities(o,mesh,&citySupport):false;
+    Object beforeStep=o;
     auto impact=[&](bool axisX,float x,float z){
      float &velocity=axisX?o.vx:o.vz;
      Object candidate=o;candidate.x=x;candidate.z=z;
@@ -97,12 +101,6 @@ public:
     float nx=o.x+o.vx*step,nz=o.z+o.vz*step;
     auto moveHorizontal=[&](bool axisX,float x,float z){
      if(!collides(x,o.y,z)){o.x=x;o.z=z;return;}
-     bool supported=o.type==8&&std::any_of(o.wheels.begin(),o.wheels.end(),[](const WheelState&w){return w.grounded;});
-     // Low kerbs/rocks: lift only with wheel support and a collision-free
-     // raised chassis. Tall walls and low ceilings remain solid.
-     if(supported&&std::abs(o.tiltX)<.4f&&std::abs(o.tiltZ)<.4f&&!collides(x,o.y+.22f,z)){
-      o.x=x;o.z=z;o.y+=.22f;o.vy=std::max(0.f,o.vy);return;
-     }
      impact(axisX,x,z);
     };
     moveHorizontal(true,nx,o.z);moveHorizontal(false,o.x,nz);

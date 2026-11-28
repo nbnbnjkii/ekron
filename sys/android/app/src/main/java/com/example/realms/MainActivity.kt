@@ -111,6 +111,13 @@ class MainActivity : GameActivity() {
     }
     private var worldReady = false
     private var flyingNow = false
+    private var sprintEnabled=false
+    private fun setSprint(enabled:Boolean){
+        sprintEnabled=enabled
+        if(::weapon.isInitialized)weapon.sprinting=enabled&&weapon.moving
+        nativeSprint(enabled)
+        if(::sprintControl.isInitialized){sprintControl.isSelected=enabled;sprintControl.caption=if(enabled)"Бег ✓" else "Бег";sprintControl.contentDescription=if(enabled)"Бег включён: нажмите, чтобы выключить" else "Включить бег";sprintControl.invalidate()}
+    }
     private lateinit var sprintControl: HudButton
     private lateinit var joystick: StickView
     private lateinit var driveStick: StickView
@@ -180,6 +187,7 @@ class MainActivity : GameActivity() {
                         interactionControl.caption=when(interactionCode){6->"Подключиться";1->"Открыть";2->"Закрыть";3->"Сесть";4->"Выйти";else->""}
                         interactionControl.contentDescription=interactionControl.caption;interactionControl.invalidate()
                         if(::driveStick.isInitialized){val driving=interactionCode==4;driveStick.visibility=if(driving)View.VISIBLE else View.GONE
+                            if(driving&&!wasDriving)setSprint(false)
                             if(!driving){driveStick.reset();if(wasDriving){joystick.reset();nativeDriveThrottle(0f)}}
                             wasDriving=driving
                             // Keep the exit button clear of the drive stick area.
@@ -253,7 +261,7 @@ class MainActivity : GameActivity() {
                 val fpv=droneState in 3..5
                 if(fpv){
                     if(normalHudVisibility.isEmpty()){
-                        closePopup();toolWheel.cancel();joystick.reset();lookArea.reset();weapon.sprinting=false;nativeSprint(false)
+                        closePopup();toolWheel.cancel();joystick.reset();lookArea.reset();setSprint(false)
                         for(i in 0 until hud.childCount){val child=hud.getChildAt(i);if(child!==fpvLayer)normalHudVisibility[child]=child.visibility}
                         Toast.makeText(this@MainActivity,"Слева — высота и рыскание. Справа — наклоны. × — к пульту.",Toast.LENGTH_LONG).show()
                     }
@@ -312,7 +320,7 @@ class MainActivity : GameActivity() {
         joystick = StickView(this) { right, forward ->
             // Behind the wheel the left stick is the gas pedal: up = forward, down = reverse.
             if(interactionCode==4){weapon.moving=false;nativeDriveThrottle(forward)}
-            else {weapon.moving=kotlin.math.hypot(right,forward)>.1f;nativeMove(right, forward)}
+            else {weapon.moving=kotlin.math.hypot(right,forward)>.1f;weapon.sprinting=sprintEnabled&&weapon.moving;nativeMove(right, forward)}
         }
         overlay.addView(joystick, FrameLayout.LayoutParams(dp(stickSize), dp(stickSize), Gravity.BOTTOM or Gravity.START).apply {
             leftMargin = dp(14); bottomMargin = dp(22)
@@ -325,19 +333,8 @@ class MainActivity : GameActivity() {
         fun action(caption: String, icon: String, click: () -> Unit): HudButton = HudButton(this, caption, icon).apply {
             setOnClickListener { click() }
         }
-        val sprint=action("Бег", "") {}.apply { contentDescription="Бег: удерживать" }
+        val sprint=action("Бег", "") { setSprint(!sprintEnabled) }.apply { contentDescription="Включить бег" }
         sprintControl=sprint
-        sprint.setOnTouchListener { view,event ->
-            when(event.actionMasked){
-                MotionEvent.ACTION_DOWN -> { weapon.sprinting=true;nativeSprint(true);view.isPressed=true;true }
-                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> {
-                    weapon.sprinting=false;nativeSprint(false);view.isPressed=false
-                    if(event.actionMasked==MotionEvent.ACTION_UP)view.performClick()
-                    true
-                }
-                else -> true
-            }
-        }
         overlay.addView(sprint,FrameLayout.LayoutParams(dp(66),dp(54),Gravity.BOTTOM or Gravity.START).apply {
             leftMargin=dp(22);bottomMargin=dp(stickSize+30)
         })
@@ -346,7 +343,7 @@ class MainActivity : GameActivity() {
         jetpackWear=Button(this).apply { text="Надеть джетпак";visibility=View.GONE;setOnClickListener { nativeCommand(61) } }
         overlay.addView(jetpackWear,FrameLayout.LayoutParams(dp(150),dp(52),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin=dp(80) })
         jetpackRemove=Button(this).apply { text="Снять джетпак";textSize=10f;visibility=View.GONE;setOnClickListener { nativeCommand(62) } }
-        overlay.addView(jetpackRemove,FrameLayout.LayoutParams(dp(125),dp(44),Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin=dp(42) })
+        overlay.addView(jetpackRemove,FrameLayout.LayoutParams(dp(125),dp(54),Gravity.BOTTOM or Gravity.START).apply { leftMargin=dp(100);bottomMargin=dp(stickSize+30) })
 
         val pause = action("", "pause") { showPauseMenu() }.apply { visualScale=.73f }
         pause.contentDescription = "Пауза"
@@ -601,7 +598,7 @@ class MainActivity : GameActivity() {
     }
     private fun setPaused(value: Boolean) {
         if(::toolWheel.isInitialized)toolWheel.cancel()
-        closePopup();weapon.sprinting=false;nativeSprint(false);paused=value;if(::joystick.isInitialized)joystick.reset();lookArea.reset();if(::driveStick.isInitialized)driveStick.reset();weapon.running=!value && active;nativeVertical(0f)
+        closePopup();setSprint(false);paused=value;if(::joystick.isInitialized)joystick.reset();lookArea.reset();if(::driveStick.isInitialized)driveStick.reset();weapon.running=!value && active;nativeVertical(0f)
         nativeReady(worldReady && active && !paused)
     }
     private fun showPauseMenu() { showLobby() }
@@ -657,7 +654,7 @@ class MainActivity : GameActivity() {
         if(::toolWheel.isInitialized)toolWheel.cancel()
         if(::fpvControls.isInitialized)fpvControls.reset()
         closePopup();weapon.running=false
-        weapon.sprinting=false;nativeSprint(false)
+        setSprint(false)
         active = false; nativeReady(false)
         if (::joystick.isInitialized) joystick.reset();if (::driveStick.isInitialized) driveStick.reset();if (::lookArea.isInitialized)lookArea.reset()
         try { player?.pause() } catch (_: IllegalStateException) {}
@@ -679,7 +676,7 @@ class MainActivity : GameActivity() {
     override fun onDestroy() { catalogExecutor.shutdownNow();nativeReady(false); player?.release(); player = null; handler.removeCallbacks(poll); super.onDestroy() }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideSystemUi() else { if(::weapon.isInitialized)weapon.sprinting=false;nativeSprint(false);nativeVertical(0f); if (::joystick.isInitialized) joystick.reset();if (::driveStick.isInitialized) driveStick.reset();if (::lookArea.isInitialized)lookArea.reset() }
+        if (hasFocus) hideSystemUi() else { setSprint(false);nativeVertical(0f); if (::joystick.isInitialized) joystick.reset();if (::driveStick.isInitialized) driveStick.reset();if (::lookArea.isInitialized)lookArea.reset() }
     }
     @Suppress("DEPRECATION")
     private fun hideSystemUi() {
