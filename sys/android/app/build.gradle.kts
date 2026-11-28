@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.realms"
         minSdk = 30
         targetSdk = 34
-        versionCode = 62
-        versionName = "0.62-jetpack-gravity"
+        versionCode = 63
+        versionName = "0.63-rocks-crash-camera"
         externalNativeBuild {
             cmake { cppFlags += "-std=c++17" }
         }

@@ -76,7 +76,7 @@ public:
     };
     // Attempt before wall impulses remove the drive velocity. Preserve the
     // raised start for CCD; horizontal travel still uses normal collision.
-    if(o.awake)tryCarTerrainStep(o,o.vx*step,o.vz*step,ground,collides);
+    if(o.awake)tryCarTerrainStep(o,o.vx*step,o.vz*step,ground,collides,&mesh);
     std::vector<physics::Vec3>citySupport;
     bool cityWall=o.awake?solveCityContactVelocities(o,mesh,&citySupport):false;
     Object beforeStep=o;
@@ -107,6 +107,15 @@ public:
     const float airDrag=std::exp(-.015f*step),angularDrag=std::exp(-.1f*step);
     o.vx*=airDrag;o.vz*=airDrag;o.spinX*=angularDrag;o.spinZ*=angularDrag;
     auto suspension=stepSuspension(o,step,ground);
+    if(seatIndex&&int(index)==*seatIndex&&o.type==8&&(suspension.contacts>=2||!citySupport.empty())){
+     // A driven car needs an anti-roll/damping response, not the free prop's
+     // accumulating angular impulses from a single tiny rock under its box.
+     Object level=o;level.tiltX*=std::exp(-20.f*step);level.tiltZ*=std::exp(-20.f*step);
+     auto box=World::bounds(level);physics::Vec3 centre{box.x,box.y,box.z};
+     if(!objectOverlap(mesh,level,centre)&&!broadphase_.overlaps(w,index,level,centre)){
+      o.tiltX=level.tiltX;o.tiltZ=level.tiltZ;o.spinX=o.spinZ=0;
+     }else{o.spinX*=std::exp(-10.f*step);o.spinZ*=std::exp(-10.f*step);}
+    }
     o.vy=std::max(-25.f,o.vy-18.f*step);float nextY=o.y+o.vy*step;
     o.tiltX+=o.spinX*step;o.tiltZ+=o.spinZ*step;
     float verticalRadius=radius();

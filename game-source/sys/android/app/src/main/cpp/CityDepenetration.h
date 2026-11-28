@@ -48,7 +48,13 @@ inline bool solveCityContactVelocities(Object&o,const physics::CollisionMesh&mes
  CityBodyFrame frame(o);std::vector<TriangleContact>contacts;contacts.reserve(32);bool wall=false;
  mesh.query(area,[&](const physics::Triangle&t){
   TriangleContact contact;if(!frameTriangleContact(frame,t,contact,.008f))return;
-  if(std::abs(contact.normal.y)<.64f)wall=true;
+  if(std::abs(contact.normal.y)<.64f){
+   // Contact skin must not turn the vertical side of a rock *below* the
+   // chassis into a wall once the car has already climbed onto its top.
+   float lowest=frame.p[0].y;for(auto p:frame.p)lowest=std::min(lowest,p.y);
+   if(std::max({t.a.y,t.b.y,t.c.y})<lowest-.001f)return;
+   wall=true;
+  }
   // Clip the triangle against all six box planes. A single projected face
   // centre is not a contact manifold: near a pit seam it can lie outside the
   // actual overlap and inject a fresh rocking impulse every step.
