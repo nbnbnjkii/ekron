@@ -2,7 +2,12 @@
 #include <cassert>
 #include <iostream>
 int main(){using namespace sandbox;
- LobbyScene s;auto hit=s.hit(.5f,.5f,16.f/9);assert(hit[0]==0&&hit[1]>.49f&&hit[1]<.51f);
+ LobbyScene s;
+ assert(s.room.size()>10000); // Detailed native bunker, not the old empty room.
+ s.update(0,0,0,0,false,false,1.f/60);assert(!s.effects.empty());auto first=s.effects.front();
+ s.update(0,0,0,0,false,false,1.f/60);assert(s.effects.front().x!=first.x||s.effects.front().y!=first.y);
+ for(const auto&v:s.effects)assert(std::isfinite(v.x)&&std::isfinite(v.y)&&std::isfinite(v.z));
+ auto hit=s.hit(.5f,.5f,16.f/9);assert(hit[0]==0&&hit[1]>.49f&&hit[1]<.51f);
  for(int screen=0;screen<4;screen++){
   s.yaw=-screen*1.57079632679f;
   auto p=LobbyScene::screenPoint(screen,.5f,.5f);float nx=0,ny=0;
