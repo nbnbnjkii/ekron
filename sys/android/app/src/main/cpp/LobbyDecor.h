@@ -19,13 +19,14 @@ struct LobbyDecor {
  }
  void wallArt(int wall,float x,float y,float depth,float w,float h,int tile){
   std::array<physics::Vec3,4> points{wallPoint(wall,x-w/2,y+h/2,depth),wallPoint(wall,x+w/2,y+h/2,depth),wallPoint(wall,x+w/2,y-h/2,depth),wallPoint(wall,x-w/2,y-h/2,depth)};
-  auto normal=physics::normalized(physics::cross(points[1]-points[0],points[2]-points[0]));
+  auto normal=physics::normalized(physics::cross(points[2]-points[0],points[1]-points[0]));
   for(int k:{0,1,2,0,2,3}){auto p=points[k];out.push_back({p.x,p.y,p.z,1,1,1,normal.x,normal.y,normal.z,k==1||k==2?1.f:0.f,k>=2?1.f:0.f,float(16+tile)});}
  }
  void labelledBox(Box b,int tile){
   size_t start=out.size();box(b,16+tile,true);
   for(size_t i=start;i<out.size();i++){auto&v=out[i];
    v.u=std::abs(v.nx)>.5f?(v.z-b.z)/b.d+.5f:(v.x-b.x)/b.w+.5f;
+   if(v.nx>.5f||v.nz<-.5f)v.u=1-v.u;
    v.v=std::abs(v.ny)>.5f?(v.z-b.z)/b.d+.5f:.5f-(v.y-b.y)/b.h;
   }
  }

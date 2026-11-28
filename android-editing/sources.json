@@ -122,7 +122,7 @@
   {
     "copy": "Лобби/LobbyDecor.h",
     "source": "sys/android/app/src/main/cpp/LobbyDecor.h",
-    "sha256": "396ea12a43ed00667b1e05d06ec000936d3eed33e47ad323f78d8e2dabe61eb7"
+    "sha256": "dc47e8b67f6dbfed49cc35c8be6c3c0b552b50437eef9042823ef392d4d1a334"
   },
   {
     "copy": "Лобби/LobbyView.kt",
