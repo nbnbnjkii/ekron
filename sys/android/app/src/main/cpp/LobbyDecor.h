@@ -17,10 +17,22 @@ struct LobbyDecor {
  void wallBox(int wall,Box b,int material=1){
   auto p=wallPoint(wall,b.x,b.y,b.z);b.x=p.x;b.y=p.y;b.z=p.z;if(wall%2)std::swap(b.w,b.d);box(b,material);
  }
+ void wallArt(int wall,float x,float y,float depth,float w,float h,int tile){
+  std::array<physics::Vec3,4> points{wallPoint(wall,x-w/2,y+h/2,depth),wallPoint(wall,x+w/2,y+h/2,depth),wallPoint(wall,x+w/2,y-h/2,depth),wallPoint(wall,x-w/2,y-h/2,depth)};
+  auto normal=physics::normalized(physics::cross(points[1]-points[0],points[2]-points[0]));
+  for(int k:{0,1,2,0,2,3}){auto p=points[k];out.push_back({p.x,p.y,p.z,1,1,1,normal.x,normal.y,normal.z,k==1||k==2?1.f:0.f,k>=2?1.f:0.f,float(16+tile)});}
+ }
+ void labelledBox(Box b,int tile){
+  size_t start=out.size();box(b,16+tile,true);
+  for(size_t i=start;i<out.size();i++){auto&v=out[i];
+   v.u=std::abs(v.nx)>.5f?(v.z-b.z)/b.d+.5f:(v.x-b.x)/b.w+.5f;
+   v.v=std::abs(v.ny)>.5f?(v.z-b.z)/b.d+.5f:.5f-(v.y-b.y)/b.h;
+  }
+ }
  void cylinder(physics::Vec3 p,float radius,float height,physics::Vec3 color,int material=1,int segments=20){
   for(int i=0;i<segments;i++){
    float a=2*pi*i/segments,b=2*pi*(i+1)/segments;
-   auto vertex=[&](float angle,float yy){return MeshVertex{p.x+radius*std::cos(angle),p.y+yy,p.z+radius*std::sin(angle),color.x,color.y,color.z,std::cos(angle),0,std::sin(angle),angle/(2*pi),yy/height+.5f,float(material)};};
+   auto vertex=[&](float angle,float yy){return MeshVertex{p.x+radius*std::cos(angle),p.y+yy,p.z+radius*std::sin(angle),color.x,color.y,color.z,std::cos(angle),0,std::sin(angle),angle/(2*pi),.5f-yy/height,float(material)};};
    auto v0=vertex(a,-height/2),v1=vertex(b,-height/2),v2=vertex(b,height/2),v3=vertex(a,height/2);
    for(auto v:{v0,v1,v2,v0,v2,v3})out.push_back(v);
    for(float side:{-1.f,1.f}){auto centre=MeshVertex{p.x,p.y+side*height/2,p.z,color.x,color.y,color.z,0,side,0,.5f,.5f,float(material)};
@@ -33,8 +45,8 @@ struct LobbyDecor {
    return MeshVertex{centre.x+p.x,centre.y+y,centre.z+p.z,color.x,color.y,color.z,0,1,0,0,0,2};};
   for(int i=0;i<segments;i++){float a=2*pi*i/segments,b=2*pi*(i+1)/segments;auto v0=point(a,radius-thickness),v1=point(b,radius-thickness),v2=point(b,radius+thickness),v3=point(a,radius+thickness);for(auto v:{v0,v1,v2,v0,v2,v3})out.push_back(v);}
  }
- void crate(float x,float z,float w,float h,float d,float bottom=0){
-  box({x,bottom+h/2,z,w,h,d,.31f,.36f,.22f,Plain},6,true);
+ void crate(float x,float z,float w,float h,float d,float bottom=0,int tile=8){
+  labelledBox({x,bottom+h/2,z,w,h,d,1,1,1,Plain},tile);
   for(float side:{-1.f,1.f}){box({x+side*w*.4f,bottom+h/2,z,.07f,h+.02f,d+.025f,.12f,.16f,.10f,Plain});box({x,bottom+h/2,z+side*d/2,w,.06f,.025f,.13f,.17f,.11f,Plain});}
   box({x,bottom+h-.02f,z,w+.03f,.05f,d+.03f,.12f,.16f,.1f,Plain});
  }
@@ -58,18 +70,20 @@ struct LobbyDecor {
     wallBox(wall,{x,3.75f,.33f,.26f,.20f,.02f,1.f,.56f,.18f,Plain},2);
     for(float dx:{-.09f,0.f,.09f})wallBox(wall,{x+dx,3.75f,.35f,.012f,.27f,.02f,.13f,.12f,.09f,Plain});
    }
+   wallArt(wall,0,4.42f,.17f,4.4f,.472f,4+wall);
+   wallArt(wall,0,.07f,.03f,16,.14f,15);
    // Stencilled banner and opposite map board / electrical cabinet.
    float bannerX=wall<2?5.7f:-5.7f;
-   wallBox(wall,{bannerX,3.15f,.12f,1.25f,3.12f,.025f,.39f,.10f,.07f,Plain},4);
+   wallArt(wall,bannerX,3.15f,.14f,1.25f,3.12f,0);
    float other=-bannerX;
-   if(wall==0||wall==2){wallBox(wall,{other,2.55f,.12f,2.25f,1.65f,.12f,.09f,.12f,.08f,Plain});wallBox(wall,{other,2.55f,.19f,2.12f,1.52f,.025f,.56f,.57f,.37f,Plain},5);}
-   else{wallBox(wall,{other,1.f,.2f,1.1f,1.6f,.36f,.27f,.32f,.23f,Plain},10);for(int k=0;k<3;k++)wallBox(wall,{other-.3f+k*.13f,1.72f,.39f,.05f,.05f,.02f,k==2?1.f:.25f,k==0?1.f:.6f,.15f,Plain},2);}
+   if(wall==0||wall==2){wallBox(wall,{other,2.55f,.12f,2.25f,1.65f,.12f,.09f,.12f,.08f,Plain});wallArt(wall,other,2.55f,.205f,2.12f,1.52f,1);wallArt(wall,other,3.6f,.15f,2.3f,.325f,3);}
+   else{wallBox(wall,{other,1.f,.2f,1.1f,1.6f,.36f,.27f,.32f,.23f,Plain},10);wallArt(wall,other,1.f,.39f,1.f,1.5f,2);for(int k=0;k<3;k++)wallBox(wall,{other-.3f+k*.13f,1.72f,.39f,.05f,.05f,.02f,k==2?1.f:.25f,k==0?1.f:.6f,.15f,Plain},2);}
   }
   for(float x:{-6.f,-2.f,2.f,6.f}){box({x,4.97f,0,.32f,.05f,16,.17f,.21f,.18f,Plain});box({x,4.63f,0,.32f,.05f,16,.17f,.21f,.18f,Plain});box({x,4.8f,0,.06f,.35f,16,.14f,.18f,.15f,Plain});}
   for(float z:{-5.3f,5.3f}){box({0,4.35f,z,16,.45f,.75f,.31f,.36f,.33f,Plain});for(int x=-7;x<=7;x+=2)box({float(x),4.35f,z,.07f,.52f,.82f,.16f,.20f,.17f,Plain});}
   for(float z:{-3.6f,3.6f})for(float x:{-3.6f,0.f,3.6f}){box({x,4.57f,z,1.5f,.1f,.3f,.07f,.10f,.08f,Plain});box({x,4.505f,z,1.34f,.03f,.2f,1.f,.91f,.72f,Plain},2);}
-  for(float side:{-1.f,1.f}){crate(side*6.8f,5.5f,1.3f,1.1f,1.3f);crate(side*6.8f,5.5f,1.f,.3f,1.f,1.1f);crate(side*4.9f,7,.7f,.7f,.7f);}
-  for(int i=0;i<3;i++){float x=-7.f+(i==1?.75f:0),z=-6.9f+(i==2?.75f:0);cylinder({x,.475f,z},.3f,.95f,{.31f,.36f,.22f},8);collision.addBox({x-.3f,0,z-.3f},{x+.3f,.95f,z+.3f});}
+  for(float side:{-1.f,1.f}){crate(side*6.8f,5.5f,1.3f,1.1f,1.3f,0,side<0?8:10);crate(side*6.8f,5.5f,1.f,.3f,1.f,1.1f,side<0?9:11);crate(side*4.9f,7,.7f,.7f,.7f,0,side<0?12:13);}
+  for(int i=0;i<3;i++){float x=-7.f+(i==1?.75f:0),z=-6.9f+(i==2?.75f:0);cylinder({x,.475f,z},.3f,.95f,{1,1,1},30);collision.addBox({x-.3f,0,z-.3f},{x+.3f,.95f,z+.3f});}
   for(float side:{-1.f,1.f})for(int layer=0;layer<3;layer++){
    for(int k=0;k<4;k++)box({side*(5.3f+k*.56f+(layer%2)*.15f),.11f+layer*.21f,-side*7.25f,.54f,.21f,.36f,.48f,.44f,.30f,Plain},7,true);
    for(int k=0;k<3;k++)box({side*7.25f,.11f+layer*.21f,-side*(6.6f-k*.56f),.36f,.21f,.54f,.48f,.44f,.30f,Plain},7,true);

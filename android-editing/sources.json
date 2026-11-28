@@ -22,7 +22,7 @@
   {
     "copy": "Управление/Общее/Renderer.cpp",
     "source": "sys/android/app/src/main/cpp/Renderer.cpp",
-    "sha256": "35ca572e4a6eea880153965f109355fb08d6fa58c6c55cc4a25c1d93f971e931"
+    "sha256": "84e87a71fbe88c5bbe666419d12647ca3670e1900a984a07b5837fa339fd5165"
   },
   {
     "copy": "Управление/Общее/Renderer.h",
@@ -112,12 +112,17 @@
   {
     "copy": "Лобби/LobbyMonitorArt.kt",
     "source": "sys/android/app/src/main/java/com/example/realms/LobbyMonitorArt.kt",
-    "sha256": "c2eca8cc936a284a4d219f45b9a5f16b07f57ed1890c0109a704b4076ef03179"
+    "sha256": "91e87e49d5210350b04612f98ba766c8d3bb27246426aa87b35f410c06deed67"
+  },
+  {
+    "copy": "Лобби/LobbyArtwork.h",
+    "source": "sys/android/app/src/main/cpp/LobbyArtwork.h",
+    "sha256": "c1fe9802450ff069721f361b5eef6886f8d72bb586b88aa30692b43a023c218d"
   },
   {
     "copy": "Лобби/LobbyDecor.h",
     "source": "sys/android/app/src/main/cpp/LobbyDecor.h",
-    "sha256": "da1a8137ca3a0a7ffbee7ec60df7f8d5b1a31155563c6facfcd23a258ff7d432"
+    "sha256": "396ea12a43ed00667b1e05d06ec000936d3eed33e47ad323f78d8e2dabe61eb7"
   },
   {
     "copy": "Лобби/LobbyView.kt",
@@ -127,7 +132,7 @@
   {
     "copy": "Лобби/LobbyIntro.kt",
     "source": "sys/android/app/src/main/java/com/example/realms/LobbyIntro.kt",
-    "sha256": "02aa0e05feaa6483040e17192882988ee77e6f7b743d8a60d56c11fa173bfa86"
+    "sha256": "9601dea780ca0ada8062d9c9eae4721278f61c4123842a5e6b6d310080cddfe1"
   },
   {
     "copy": "Лобби/LobbyScene.h",
@@ -137,6 +142,6 @@
   {
     "copy": "Лобби/LobbyRenderer.h",
     "source": "sys/android/app/src/main/cpp/LobbyRenderer.h",
-    "sha256": "19d1f68f001530e17464a5e49624133936e292db95ef0613fb1f6f61ce902da8"
+    "sha256": "49f25b96c916733b2d151ff0719b197aa214b4af1c2ef2598e1db8bcf39bbbd6"
   }
 ]

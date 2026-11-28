@@ -21,7 +21,7 @@ internal object LobbyMonitorArt {
         c.drawRect(0f,0f,768f,62f,p);p.shader=null;p.color=accent;c.drawRect(0f,60f,768f,62f,p)
         p.style=Paint.Style.STROKE;p.strokeWidth=1.5f;c.drawRect(14f,12f,54f,50f,p);p.style=Paint.Style.FILL
         p.typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD);p.textSize=22f;c.drawText("0${screen+1}",20f,39f,p)
-        p.textSize=27f;c.drawText(when(screen){0->"КОМАНДНЫЙ ПУНКТ";2->"ИНТРО";else->"ПОЛЕВОЕ РУКОВОДСТВО"},68f,42f,p)
+        p.textSize=27f;c.drawText(when(screen){0->"ЭКРОН · КОМАНДНЫЙ ПУНКТ";2->"ИНТРО · касание: пауза";else->"ПОЛЕВОЕ РУКОВОДСТВО"},68f,42f,p)
         p.textSize=14f;p.color=0xff70a284.toInt();p.textAlign=Paint.Align.RIGHT
         c.drawText("УЗЕЛ 01",750f,24f,p);c.drawText("КАНАЛ 0${screen+1}/04",750f,46f,p);p.textAlign=Paint.Align.LEFT
         fun row(n:Int,text:String,button:Boolean=false,enabled:Boolean=true,title:Boolean=false){
@@ -48,7 +48,7 @@ internal object LobbyMonitorArt {
                 row(2,"Выживание пока недоступно",enabled=false);row(3,"Назад",true);row(4,notice)
             }
             2->{row(0,"ВИДЕОКАНАЛ",title=true);row(2,if(introError)"Не удалось открыть видео" else "Касание: пауза / продолжить")}
-            3->{row(0,"ПОЛЕВОЙ ИНСТРУКТАЖ",title=true);row(1,"Левый стик — движение");row(2,"Проведение справа — обзор");row(3,"Касайтесь кнопок на мониторах");row(4,"Настройки — на правой стене")}
+            3->{row(0,"01  Здесь нет оружия и строительства");row(1,"02  Обзор и ходьба — как в игре");row(2,"03  Кнопки находятся на стенах");row(3,"04  Продолжить возвращает в сессию");row(4,"05  Настройки — на правой стене")}
         }
         p.color=0x66000000;c.drawRect(0f,404f,768f,432f,p);p.color=0x59a7eac0;c.drawRect(0f,404f,768f,405f,p)
         p.textSize=14f;c.drawText("ЭКРОН · ЛОББИ · УЗЕЛ 01",14f,423f,p)

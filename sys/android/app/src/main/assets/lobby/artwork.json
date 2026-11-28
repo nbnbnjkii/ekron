@@ -1,0 +1,66 @@
+[
+  {
+    "tile": 0,
+    "name": "banner"
+  },
+  {
+    "tile": 1,
+    "name": "map"
+  },
+  {
+    "tile": 2,
+    "name": "cabinet"
+  },
+  {
+    "tile": 3,
+    "name": "tactical-sign"
+  },
+  {
+    "tile": 4,
+    "name": "monitor-0"
+  },
+  {
+    "tile": 5,
+    "name": "monitor-1"
+  },
+  {
+    "tile": 6,
+    "name": "monitor-2"
+  },
+  {
+    "tile": 7,
+    "name": "monitor-3"
+  },
+  {
+    "tile": 8,
+    "name": "crate-0"
+  },
+  {
+    "tile": 9,
+    "name": "crate-1"
+  },
+  {
+    "tile": 10,
+    "name": "crate-2"
+  },
+  {
+    "tile": 11,
+    "name": "crate-3"
+  },
+  {
+    "tile": 12,
+    "name": "crate-4"
+  },
+  {
+    "tile": 13,
+    "name": "crate-5"
+  },
+  {
+    "tile": 14,
+    "name": "barrel"
+  },
+  {
+    "tile": 15,
+    "name": "hazard"
+  }
+]
