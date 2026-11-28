@@ -1,0 +1,132 @@
+[
+  {
+    "copy": "Управление/Общее/MainActivity.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/MainActivity.kt",
+    "sha256": "9db622254f97e26f8fb4315cc7e1b7d8e24f74476a6301b4f37e22ec347b0043"
+  },
+  {
+    "copy": "Управление/Общее/TouchControls.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/TouchControls.kt",
+    "sha256": "88cbaa623240f186a34e9024d3d6f7a11d1fb60f90ab500fc8d55dc03822f28c"
+  },
+  {
+    "copy": "Управление/Общее/PointerDrag.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/PointerDrag.kt",
+    "sha256": "b829b569896f7da6a5f89e68b8f6ab1af165b869622f6aae3102eb75d2f5cd27"
+  },
+  {
+    "copy": "Управление/Общее/ControlEditorView.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/ControlEditorView.kt",
+    "sha256": "3eeec30de0eba57cf382a0f75b6ec190d3158c2fdf399ac192c1a813a5a18fe9"
+  },
+  {
+    "copy": "Управление/Общее/Renderer.cpp",
+    "source": "sys/android/app/src/main/cpp/Renderer.cpp",
+    "sha256": "35ca572e4a6eea880153965f109355fb08d6fa58c6c55cc4a25c1d93f971e931"
+  },
+  {
+    "copy": "Управление/Общее/Renderer.h",
+    "source": "sys/android/app/src/main/cpp/Renderer.h",
+    "sha256": "0696fcbe00b1998e7d8f8de97763853ebe50cabc84771ed63dad679b49f3f292"
+  },
+  {
+    "copy": "Управление/Игрок/PlayerPhysics.h",
+    "source": "sys/android/app/src/main/cpp/PlayerPhysics.h",
+    "sha256": "027759d54d1762d9ca9b1e9a7af4b06da1b6a75f9d00e50e9ada521344964fb1"
+  },
+  {
+    "copy": "Управление/Игрок/PlayerView.h",
+    "source": "sys/android/app/src/main/cpp/PlayerView.h",
+    "sha256": "a918ddd6de75e1ff330a2a4a62b4452d34884e9b22756e879675d2d66fc835dd"
+  },
+  {
+    "copy": "Управление/Игрок/Jetpack.h",
+    "source": "sys/android/app/src/main/cpp/Jetpack.h",
+    "sha256": "8f228392d31e549dbbf9bc795b7900bc1cf8ef7f471f9d17eb53a3abd8e7effc"
+  },
+  {
+    "copy": "Управление/Игрок/ToolArtView.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/ToolArtView.kt",
+    "sha256": "3de9d4dafe6a26caa15bf84dd2d6adbfd7d9b5e05e9fe68d710bbc4d023fd9b7"
+  },
+  {
+    "copy": "Управление/Игрок/ToolState.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/ToolState.kt",
+    "sha256": "d0393abc9a66aea83ce8ff67d37535381db66002b421a1d0e7f3bf70eab2ecd4"
+  },
+  {
+    "copy": "Управление/Игрок/ToolWheelView.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/ToolWheelView.kt",
+    "sha256": "98b401a274ce8af784cc18bb16aa0b4178a517c937921907fa596c719c5d149b"
+  },
+  {
+    "copy": "Управление/Игрок/ToolWheelSelection.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/ToolWheelSelection.kt",
+    "sha256": "bc86581515e30735a63432161dde239ee1704609b66bfb0f061cc64b54b94831"
+  },
+  {
+    "copy": "Управление/Дрон/FpvControlView.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/FpvControlView.kt",
+    "sha256": "2053ff301ba67bc667fa342094f0d81e7daaf5a2e912de6eb31ec6d390ab2a0b"
+  },
+  {
+    "copy": "Управление/Дрон/FpvDrone.h",
+    "source": "sys/android/app/src/main/cpp/FpvDrone.h",
+    "sha256": "b4ea8503da54624d86644cea953f5f727be557de020b88f8fd13950c040a41e6"
+  },
+  {
+    "copy": "Управление/Дрон/CrashCamera.h",
+    "source": "sys/android/app/src/main/cpp/CrashCamera.h",
+    "sha256": "f8fc336877ed4983829fec4306cd81126a3ff33129f0bfafc2d90e3e58374402"
+  },
+  {
+    "copy": "Управление/Дрон/BlastEffects.h",
+    "source": "sys/android/app/src/main/cpp/BlastEffects.h",
+    "sha256": "f8f3c3626b2b1159c84145542e1fb6da26205d536d086b45c625b21da8b9a170"
+  },
+  {
+    "copy": "Управление/Машина/CarSuspension.h",
+    "source": "sys/android/app/src/main/cpp/CarSuspension.h",
+    "sha256": "135438c0336d42c74f02955fae567c1a01151e1895ea3824eb274c9e8b16716d"
+  },
+  {
+    "copy": "Управление/Машина/CarTraversal.h",
+    "source": "sys/android/app/src/main/cpp/CarTraversal.h",
+    "sha256": "9b06ae1810dc373980348141645e6426bd6330864ad915806b24e16392992344"
+  },
+  {
+    "copy": "Управление/Машина/ObjectDynamics.h",
+    "source": "sys/android/app/src/main/cpp/ObjectDynamics.h",
+    "sha256": "e8425d652541682ff94f00b425936c9fac905dd9680a86847f3dded43bdd5a12"
+  },
+  {
+    "copy": "Управление/Машина/CityDepenetration.h",
+    "source": "sys/android/app/src/main/cpp/CityDepenetration.h",
+    "sha256": "91b998387e4c469bd14a15b3eb36d69e149d268c6d3cffbd618c888e72a0b075"
+  },
+  {
+    "copy": "Управление/Машина/Interaction.h",
+    "source": "sys/android/app/src/main/cpp/Interaction.h",
+    "sha256": "1babc1be560d7c9a6fcdeed3389b9b0ea1722f9870c69bff55948b92e2ef55a3"
+  },
+  {
+    "copy": "Лобби/LobbyView.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/LobbyView.kt",
+    "sha256": "729ce2071aa828892503c21d193a7eef9bbb89197e3b030a4cdb486b38418436"
+  },
+  {
+    "copy": "Лобби/LobbyIntro.kt",
+    "source": "sys/android/app/src/main/java/com/example/realms/LobbyIntro.kt",
+    "sha256": "02aa0e05feaa6483040e17192882988ee77e6f7b743d8a60d56c11fa173bfa86"
+  },
+  {
+    "copy": "Лобби/LobbyScene.h",
+    "source": "sys/android/app/src/main/cpp/LobbyScene.h",
+    "sha256": "d15dce0dbafdc2748db64c955dad8aea470768064a299503b3bb12df0d32ba95"
+  },
+  {
+    "copy": "Лобби/LobbyRenderer.h",
+    "source": "sys/android/app/src/main/cpp/LobbyRenderer.h",
+    "sha256": "e31daa924253229d82ce94aeb97fcee46b2904f8870476a3be762342cce227a6"
+  }
+]
